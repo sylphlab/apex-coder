@@ -16,6 +16,11 @@ const routes = [
     name: 'Chat',
     component: () => import('../views/ChatView.vue'), // Lazy load
   },
+  {
+    path: '/api-keys',
+    name: 'ApiKeySettings',
+    component: () => import('../views/ApiKeySettingsView.vue'), // Lazy load
+  },
 ];
 
 const router = createRouter({

@@ -1,7 +1,8 @@
-rol<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue';
 import { useRouter } from 'vue-router'; // Import useRouter
 import { vscode } from './vscode';
+import { ProviderService } from './services/providerService';
 // Removed import './app.css'; as UnoCSS handles styles now
 // --- Configuration State ---
 const providerSet = ref<boolean>(false);
@@ -19,158 +20,44 @@ const setupApiKey = ref<string>('');
 const setupBaseUrl = ref<string>('');
 const setupCustomModelId = ref<string>('');
 
-// Provider & Model Options (remains in App.vue as it's shared config data)
-const providerOptions = ref([
-  { value: '', label: '-- Select Provider --', models: [], requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false },
-  
-  // Core providers
-  {
-    value: 'googleai', label: 'Google AI (Gemini)',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'models/gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-      { value: 'models/gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-      { value: 'models/gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' },
-      { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-      { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
-      { value: 'models/gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro (Preview 03-25)' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'openai', label: 'OpenAI (GPT)',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'gpt-4o', label: 'GPT-4o' },
-      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'anthropic', label: 'Anthropic (Claude)',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet' },
-      { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-      { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
-      { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'ollama', label: 'Ollama (Local)',
-    models: [
-      { value: '', label: '-- Select Common Model (or enter custom below) --' },
-      { value: 'llama3', label: 'Llama 3' },
-      { value: 'mistral', label: 'Mistral' },
-      { value: 'codellama', label: 'Code Llama' },
-      { value: 'phi3', label: 'Phi-3' },
-    ],
-    requiresApiKey: false, requiresBaseUrl: true, allowCustomModel: true,
-  },
-  {
-    value: 'deepseek', label: 'DeepSeek',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'deepseek-chat', label: 'DeepSeek Chat' },
-      { value: 'deepseek-coder', label: 'DeepSeek Coder' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  
-  // Cloud providers
-  {
-    value: 'vertexai', label: 'Google Vertex AI',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-      { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'cohere', label: 'Cohere',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'command', label: 'Command' },
-      { value: 'command-r', label: 'Command-R' },
-      { value: 'command-r-plus', label: 'Command-R+' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'mistral', label: 'Mistral AI',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'mistral-large-latest', label: 'Mistral Large' },
-      { value: 'mistral-medium-latest', label: 'Mistral Medium' },
-      { value: 'mistral-small-latest', label: 'Mistral Small' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'perplexity', label: 'Perplexity AI',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'sonar-medium-online', label: 'Sonar Medium (Online)' },
-      { value: 'sonar-small-online', label: 'Sonar Small (Online)' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'replicate', label: 'Replicate',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'meta/llama-3-70b-instruct', label: 'Llama 3 70B Instruct' },
-      { value: 'meta/llama-3-8b-instruct', label: 'Llama 3 8B Instruct' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: true,
-  },
-  
-  // Enterprise providers
-  {
-    value: 'aws', label: 'AWS Bedrock',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'anthropic.claude-3-sonnet-20240229-v1:0', label: 'Claude 3 Sonnet' },
-      { value: 'anthropic.claude-3-haiku-20240307-v1:0', label: 'Claude 3 Haiku' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'azure', label: 'Azure OpenAI',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'gpt-4', label: 'GPT-4' },
-      { value: 'gpt-35-turbo', label: 'GPT-3.5 Turbo' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: true, allowCustomModel: false,
-  },
-  {
-    value: 'groq', label: 'Groq',
-    models: [
-      { value: '', label: '-- Select Model --' },
-      { value: 'llama3-70b-8192', label: 'Llama 3 70B' },
-      { value: 'llama3-8b-8192', label: 'Llama 3 8B' },
-      { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-    ],
-    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
-  },
-]);
+// Provider & Model state
+const providers = ref<any[]>([]);
+const models = ref<any[]>([]);
+// Load providers on mount
+onMounted(async () => {
+  try {
+    providers.value = await ProviderService.getAllProviders();
+  } catch (error) {
+    console.error('Error loading providers in App.vue:', error);
+  }
+});
 
 // Computed properties derived from setup state (needed by both App and SetupView)
 const selectedProviderDetails = computed(() => {
-  return providerOptions.value.find(p => p.value === setupProvider.value);
-});
-const availableModels = computed(() => {
-  return selectedProviderDetails.value?.models || [];
+  return providers.value.find(p => p.id === setupProvider.value);
 });
 
-// Watcher remains in App.vue as it modifies setup state held here
-watch(setupProvider, () => {
+// Watch for provider changes to load models
+watch(setupProvider, async (newProvider) => {
+  // Reset model selection
   setupModelId.value = '';
   setupCustomModelId.value = '';
+  
+  if (!newProvider) {
+    models.value = [];
+    return;
+  }
+  
+  try {
+    models.value = await ProviderService.getModelsForProvider(newProvider);
+  } catch (error) {
+    console.error(`Error loading models for provider ${newProvider}:`, error);
+    models.value = [];
+  }
+});
+
+const availableModels = computed(() => {
+  return models.value;
 });
 
 // --- Chat State (remains in App.vue as it's core application state) ---
@@ -230,13 +117,13 @@ const saveConfiguration = () => {
   // Model ID is often optional (defaults on backend/provider side), so don't validate here strictly unless needed.
   // API key validation (only if provider requires it)
   if (selectedProviderDetails.value?.requiresApiKey && !payload.apiKey) {
-     configError.value = `API Key is required for ${selectedProviderDetails.value.label}.`;
+     configError.value = `API Key is required for ${selectedProviderDetails.value.name}.`;
      return;
    }
    // Base URL validation (only if provider requires it - primarily Ollama)
    if (selectedProviderDetails.value?.requiresBaseUrl && !payload.baseUrl) {
        // Make Base URL optional for Ollama for now, user might run on default localhost
-       // configError.value = `Base URL is required for ${selectedProviderDetails.value.label}.`;
+       // configError.value = `Base URL is required for ${selectedProviderDetails.value.name}.`;
        // return;
    }
 
@@ -397,6 +284,14 @@ break;
 
 onMounted(async () => { // Make async to await initial navigation
   removeListener = vscode.onMessage(handleExtensionMessage);
+  
+  // Load providers
+  try {
+    providers.value = await ProviderService.getAllProviders();
+  } catch (error) {
+    console.error('Error loading providers in App.vue:', error);
+  }
+  
   // Request status first, then navigate based on the initial response
   // The handleExtensionMessage function will trigger the initial navigation
   getConfigStatus();
@@ -419,7 +314,6 @@ onUnmounted(() => {
     
     <!-- Router View will render Welcome, Setup, or Chat views -->
     <router-view
-      :provider-options="providerOptions"
       :setup-provider="setupProvider"
       :setup-model-id="setupModelId"
       :setup-api-key="setupApiKey"

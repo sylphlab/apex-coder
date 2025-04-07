@@ -24,9 +24,11 @@ A VSCode extension that provides a comprehensive, AI-powered coding assistance e
    ```bash
    pnpm install
    ```
-3. Install the 'open' package for development scripts:
+3. Build the extension (or use watch mode for development):
    ```bash
-   pnpm add open
+   pnpm compile  # For a one-time build
+   # OR
+   pnpm watch    # For development with auto-rebuild
    ```
 
 ### Development Workflow
@@ -39,38 +41,34 @@ The project is configured to make development easy using VS Code's built-in feat
    - Press `F5` to start debugging the extension
    - This will open a new VS Code window with the extension loaded
    - In the new window, use the Command Palette (`Ctrl+Shift+P`) and run "Apex Coder: Show Panel"
-
 2. **Launch Configurations**:
-   - `Run Extension`: Basic extension debugging
-   - `Run Extension with Panel`: Automatically opens the panel after launch
-   - `Run Vite Dev Server`: Starts the UI development server
-   - `Extension + Vite Dev`: Runs both the extension and UI server
+   - `Run Extension`: Basic extension debugging with automatic panel opening
+   - `Run Extension with UI Dev Server`: Runs both the extension and UI development server
    - `Full Development Environment`: Complete development setup
 
 3. **Tasks**:
-   - `pnpm: compile`: Compile the extension
-   - `Start Vite Dev Server`: Start the UI development server
-   - `Start Full Dev Environment`: Start both compilation and UI server
+   - `pnpm: watch`: Watch for changes in the extension code
+   - `Start Webview UI Dev Server`: Start the UI development server with hot-reloading
+   - `Start Full Dev Environment`: Start both extension watching and UI server
    - `Run: Show Panel`: Open the extension panel
 
-#### Using Scripts
+#### Recommended Development Workflow
 
-Alternatively, you can use the provided scripts:
+The recommended way to develop this extension is using VS Code's built-in debugging features:
 
-1. **Start the complete development environment**:
-   ```bash
-   pnpm dev
-   ```
+1. **Open the project in VS Code**
+2. **Choose a launch configuration**:
+   - `Run Extension`: For basic extension debugging
+   - `Run Extension with UI Dev Server`: For full-stack development with hot-reloading UI
 
-2. **Start only the UI development server**:
-   ```bash
-   pnpm dev:ui
-   ```
+3. **Press F5** to start debugging
+   - This will start the appropriate tasks and launch a new VS Code window with the extension
+   - The extension panel will automatically open in the new window
 
-3. **Start only the extension development**:
-   ```bash
-   pnpm dev:ext
-   ```
+4. **Make changes to the code**
+   - With the watch mode active, changes to the extension code will be automatically compiled
+   - You'll need to reload the extension to see the changes (Ctrl+R in the debug window)
+   - Changes to the webview UI will be automatically applied if you're using the UI Dev Server
 
 ### Installing Additional Providers
 

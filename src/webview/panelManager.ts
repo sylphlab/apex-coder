@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getWebviewContent } from './contentProvider';
 import { logger } from '../utils/logger';
 import { AiConfig, getCurrentAiConfig, getLanguageModel, initializeAiSdkModel, resetAiSdkModel } from '../ai-sdk/configLoader';
+import { ProviderService } from '../ai-sdk/providerService';
 import { streamText } from 'ai'; // Keep this import
 import { createAllTools } from '../tools/coreTools';
 // Corrected single import for constants
@@ -120,8 +121,88 @@ export class PanelManager {
             case 'sendMessage':
                 await this.handleSendMessage(message.payload as SendMessagePayload);
                 return;
+            case 'getProviders':
+                await this.handleGetProviders();
+                return;
+            case 'getModelsForProvider':
+                await this.handleGetModelsForProvider(message.payload);
+                return;
             default:
                 logger.warn(`Received unknown command from webview: ${message.command}`);
+        }
+    }
+
+    /**
+     * Handles request to get all available providers
+     */
+    private async handleGetProviders(): Promise<void> {
+        logger.info('Handling getProviders command...');
+        try {
+            const providers = await ProviderService.getAllProviders();
+            
+            // Add configuration status to each provider
+            const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE.split('.')[0]);
+            const currentProvider = config.get<string>(CONFIG_PROVIDER.split('.').pop()!);
+            
+            if (currentProvider) {
+                const currentProviderLower = currentProvider.toLowerCase();
+                // Check if the current provider is initialized
+                for (const provider of providers) {
+                    if (provider.id.toLowerCase() === currentProviderLower) {
+                        provider.isConfigured = true;
+                        provider.isWorking = this.isModelInitialized;
+                    }
+                }
+            }
+            
+            PanelManager.currentPanel?.webview.postMessage({
+                command: 'providersResult',
+                payload: { providers }
+            });
+            logger.info(`Sent ${providers.length} providers to webview`);
+        } catch (error) {
+            logger.error('Error getting providers:', error);
+            this.postErrorToWebview(`Failed to get providers: ${error instanceof Error ? error.message : String(error)}`, 'getProviders');
+        }
+    }
+
+    /**
+     * Handles request to get models for a specific provider
+     * @param payload The payload containing the provider ID and optional configuration
+     */
+    private async handleGetModelsForProvider(payload: any): Promise<void> {
+        const { providerId, config } = payload || {};
+        logger.info(`Handling getModelsForProvider command for provider: ${providerId}`);
+        
+        if (!providerId) {
+            this.postErrorToWebview('Provider ID is required to get models');
+            return;
+        }
+        
+        try {
+            // If the provider is Ollama, get the baseUrl from settings
+            let baseUrl: string | undefined;
+            if (providerId.toLowerCase() === 'ollama') {
+                const vsConfig = vscode.workspace.getConfiguration(CONFIG_NAMESPACE.split('.')[0]);
+                baseUrl = vsConfig.get<string>(CONFIG_BASE_URL.split('.').pop()!);
+            }
+            
+            const models = await ProviderService.getModelsForProvider(providerId, {
+                ...config,
+                baseUrl: baseUrl || config?.baseUrl
+            });
+            
+            PanelManager.currentPanel?.webview.postMessage({
+                command: 'modelsResult',
+                payload: {
+                    providerId,
+                    models
+                }
+            });
+            logger.info(`Sent ${models.length} models for provider ${providerId} to webview`);
+        } catch (error) {
+            logger.error(`Error getting models for provider ${providerId}:`, error);
+            this.postErrorToWebview(`Failed to get models for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`, 'getModelsForProvider');
         }
     }
 
@@ -168,11 +249,11 @@ export class PanelManager {
         const { provider, modelId, apiKey, baseUrl } = payload;
 
         if (!provider) {
-            this.postErrorToWebview('Provider name is required.');
+            this.postErrorToWebview('Provider name is required.', 'saveConfiguration');
             return;
         }
         if (!apiKey && provider.toLowerCase() !== 'ollama') {
-            this.postErrorToWebview(`API Key is required for ${provider}.`);
+            this.postErrorToWebview(`API Key is required for ${provider}.`, 'saveConfiguration');
             return;
         }
 
@@ -208,7 +289,7 @@ export class PanelManager {
         } catch (error: unknown) {
             const errorMsg = `Failed to save configuration: ${error instanceof Error ? error.message : String(error)}`;
             logger.error('Error saving configuration:', error);
-            this.postErrorToWebview(errorMsg);
+            this.postErrorToWebview(errorMsg, 'saveConfiguration');
             this.isModelInitialized = false; // Reset state on error
             resetAiSdkModel();
         }
@@ -228,7 +309,7 @@ export class PanelManager {
         if (!this.isModelInitialized) {
             const initSuccess = await this.tryInitializeModel();
             if (!initSuccess) {
-                this.postErrorToWebview('AI Model not initialized. Check configuration.');
+                this.postErrorToWebview('AI Model not initialized. Check configuration.', 'sendMessage');
                 return;
             }
         }
@@ -291,7 +372,7 @@ export class PanelManager {
         } catch (error: unknown) {
             const errorMsg = `AI Request Failed: ${error instanceof Error ? error.message : String(error)}`;
             logger.error('Error processing AI request:', error);
-            this.postErrorToWebview(errorMsg);
+            this.postErrorToWebview(errorMsg, 'sendMessage');
         }
     }
 
@@ -354,9 +435,12 @@ export class PanelManager {
      * Posts an error message to the webview.
      * @param message The error message text.
      */
-    private postErrorToWebview(message: string): void {
+    private postErrorToWebview(message: string, source?: string): void {
         vscode.window.showErrorMessage(`Apex Coder: ${message}`);
-        PanelManager.currentPanel?.webview.postMessage({ command: 'error', payload: message });
+        PanelManager.currentPanel?.webview.postMessage({
+            command: 'error',
+            payload: source ? { message, source } : message
+        });
     }
 
     /**

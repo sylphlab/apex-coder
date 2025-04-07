@@ -1,4 +1,4 @@
-<!-- Version: 1.1 | Last Updated: 2025-07-04 -->
+<!-- Version: 1.2 | Last Updated: 2025-07-04 -->
 
 # Technical Context: Apex Coder
 
@@ -17,6 +17,14 @@
 - VSCode for development
 - `vsce` for packaging
 - `yo code` for initial scaffolding
+
+**Development Workflow:**
+- VSCode F5 debugging for extension development
+- Watch mode for automatic rebuilding of extension code
+- Vite dev server for hot-reloading UI changes
+- Launch configurations:
+  - `Run Extension`: Basic extension debugging
+  - `Run Extension with UI Dev Server`: Full-stack development with hot-reloading UI
 
 **Key Libraries/APIs:**
 - VSCode Extension API

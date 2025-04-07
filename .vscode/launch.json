@@ -17,6 +17,19 @@
 			],
 			"preLaunchTask": "${defaultBuildTask}",
 			"postDebugTask": "Run: Show Panel"
+		},
+		{
+			"name": "Run Extension with UI Dev Server",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "Start Webview UI Dev Server",
+			"postDebugTask": "Run: Show Panel"
 		}
 	],
 	"compounds": []

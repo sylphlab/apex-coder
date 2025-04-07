@@ -12,7 +12,7 @@ export interface AiConfig {
 }
 
 // Provider information structure
-interface ProviderInfo {
+export interface ProviderInfo {
     defaultModel: string;
     importPath: string;
     creatorFunction: string;
@@ -20,7 +20,7 @@ interface ProviderInfo {
 }
 
 // Define provider information with default models and import details
-const PROVIDER_INFO: Record<string, ProviderInfo> = {
+export const PROVIDER_INFO: Record<string, ProviderInfo> = {
     // Core providers
     googleai: {
         defaultModel: 'gemini-1.5-flash',

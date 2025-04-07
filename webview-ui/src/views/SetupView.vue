@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, defineProps, defineEmits } from 'vue';
+import { computed, defineProps, defineEmits, ref, onMounted, watch } from 'vue';
+import { ProviderService, type ProviderDetails, type ModelInfo } from '../services/providerService';
 
 // Define props received from App.vue
 const props = defineProps<{
@@ -24,9 +25,73 @@ const emit = defineEmits([
   'saveConfiguration',
 ]);
 
-// Local computed properties or methods specific to SetupView can go here if needed
-// For now, we directly use props and emit events
+// Local state for providers and models
+const providers = ref<ProviderDetails[]>([]);
+const models = ref<ModelInfo[]>([]);
+const isLoadingProviders = ref(false);
+const isLoadingModels = ref(false);
+const loadingError = ref<string | null>(null);
 
+// Get the query parameter for provider if available
+const urlParams = new URLSearchParams(window.location.search);
+const providerFromUrl = urlParams.get('provider');
+
+// Load providers on mount
+onMounted(async () => {
+  try {
+    isLoadingProviders.value = true;
+    providers.value = await ProviderService.getAllProviders();
+    isLoadingProviders.value = false;
+    
+    // If provider is specified in URL, select it
+    if (providerFromUrl) {
+      emit('update:setupProvider', providerFromUrl);
+    }
+  } catch (error) {
+    isLoadingProviders.value = false;
+    loadingError.value = error instanceof Error ? error.message : 'Failed to load providers';
+    console.error('Error loading providers:', error);
+  }
+});
+
+// Watch for provider changes to load models
+watch(() => props.setupProvider, async (newProvider) => {
+  if (!newProvider) {
+    models.value = [];
+    return;
+  }
+  
+  try {
+    isLoadingModels.value = true;
+    models.value = await ProviderService.getModelsForProvider(newProvider);
+    isLoadingModels.value = false;
+    
+    // If models are loaded and there's at least one, select the first one
+    if (models.value.length > 0 && !props.setupModelId) {
+      emit('update:setupModelId', models.value[0].id);
+    }
+  } catch (error) {
+    isLoadingModels.value = false;
+    console.error(`Error loading models for provider ${newProvider}:`, error);
+    // Don't set error here to avoid blocking the UI
+  }
+});
+
+// Get the selected provider details
+const selectedProvider = computed(() => {
+  return providers.value.find(p => p.id === props.setupProvider);
+});
+
+// Format models for dropdown
+const formattedModels = computed(() => {
+  return [
+    { value: '', label: '-- Select Model --' },
+    ...models.value.map(model => ({
+      value: model.id,
+      label: model.name + (model.description ? ` (${model.description})` : '')
+    }))
+  ];
+});
 </script>
 <template>
   <div class="flex flex-col items-center justify-center h-full px-6 py-8 animate-nordic-fade-in">
@@ -44,35 +109,67 @@ const emit = defineEmits([
         <!-- Provider Dropdown -->
         <div class="mb-5">
           <label for="provider-select" class="block mb-2 text-sm font-medium text-nordic-text-primary">Provider</label>
+          <div v-if="isLoadingProviders" class="flex items-center space-x-2 text-nordic-text-muted text-sm py-2">
+            <div class="animate-spin h-4 w-4 border-2 border-nordic-primary border-t-transparent rounded-full"></div>
+            <span>Loading providers...</span>
+          </div>
           <select
+            v-else
             id="provider-select"
             :value="props.setupProvider"
             @input="emit('update:setupProvider', ($event.target as HTMLSelectElement).value)"
             class="input-nordic"
           >
-            <option v-for="option in props.providerOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
+            <option value="">-- Select Provider --</option>
+            <optgroup label="Core Providers">
+              <option v-for="provider in providers.filter(p => p.category === 'core')" :key="provider.id" :value="provider.id">
+                {{ provider.name }}
+              </option>
+            </optgroup>
+            <optgroup label="Cloud Providers">
+              <option v-for="provider in providers.filter(p => p.category === 'cloud')" :key="provider.id" :value="provider.id">
+                {{ provider.name }}
+              </option>
+            </optgroup>
+            <optgroup label="Enterprise Providers">
+              <option v-for="provider in providers.filter(p => p.category === 'enterprise')" :key="provider.id" :value="provider.id">
+                {{ provider.name }}
+              </option>
+            </optgroup>
+            <optgroup label="Community Providers">
+              <option v-for="provider in providers.filter(p => p.category === 'community')" :key="provider.id" :value="provider.id">
+                {{ provider.name }}
+              </option>
+            </optgroup>
           </select>
         </div>
 
         <!-- Model Dropdown (conditional) -->
-        <div class="mb-5" v-if="props.setupProvider && props.availableModels.length > 0">
+        <div class="mb-5" v-if="props.setupProvider">
           <label for="modelId-select" class="block mb-2 text-sm font-medium text-nordic-text-primary">Model</label>
+          <div v-if="isLoadingModels" class="flex items-center space-x-2 text-nordic-text-muted text-sm py-2">
+            <div class="animate-spin h-4 w-4 border-2 border-nordic-primary border-t-transparent rounded-full"></div>
+            <span>Loading models...</span>
+          </div>
           <select
+            v-else-if="models.length > 0"
             id="modelId-select"
             :value="props.setupModelId"
             @input="emit('update:setupModelId', ($event.target as HTMLSelectElement).value)"
             class="input-nordic"
           >
-            <option v-for="model in props.availableModels" :key="model.value" :value="model.value">
-              {{ model.label }}
+            <option value="">-- Select Model --</option>
+            <option v-for="model in models" :key="model.id" :value="model.id">
+              {{ model.name }}{{ model.description ? ` (${model.description})` : '' }}
             </option>
           </select>
+          <p v-else class="text-sm text-nordic-text-muted py-2">
+            No models available for this provider.
+          </p>
         </div>
 
         <!-- Custom Model ID Input (conditional, e.g., for Ollama) -->
-        <div class="mb-5" v-if="props.selectedProviderDetails?.allowCustomModel">
+        <div class="mb-5" v-if="selectedProvider?.allowCustomModel">
           <label for="customModelId" class="block mb-2 text-sm font-medium text-nordic-text-primary">
             Custom Model ID <span class="text-nordic-text-muted">(if not in list)</span>
           </label>
@@ -87,7 +184,7 @@ const emit = defineEmits([
         </div>
 
         <!-- API Key Input (conditional) -->
-        <div class="mb-5" v-if="props.selectedProviderDetails?.requiresApiKey">
+        <div class="mb-5" v-if="selectedProvider?.requiresApiKey">
           <label for="apiKey" class="block mb-2 text-sm font-medium text-nordic-text-primary">API Key</label>
           <input
             type="password"
@@ -100,7 +197,7 @@ const emit = defineEmits([
         </div>
 
         <!-- Base URL Input (conditional) -->
-        <div class="mb-5" v-if="props.selectedProviderDetails?.requiresBaseUrl">
+        <div class="mb-5" v-if="selectedProvider?.requiresBaseUrl">
           <label for="baseUrl" class="block mb-2 text-sm font-medium text-nordic-text-primary">
             Base URL <span class="text-nordic-text-muted">(Optional for Ollama)</span>
           </label>
@@ -131,6 +228,12 @@ const emit = defineEmits([
             class="btn-nordic-primary"
           >
             Save Configuration
+          </button>
+          <button
+            @click="$router.push('/api-keys')"
+            class="btn-nordic-secondary"
+          >
+            Manage All API Keys
           </button>
           <button
             @click="$router.push('/')"

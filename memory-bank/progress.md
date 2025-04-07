@@ -1,4 +1,4 @@
-<!-- Version: 1.28 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.29 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Progress: Apex Coder
 
@@ -63,6 +63,11 @@
 - **Committed:** Committed UI styling changes (Commit `6707987`).
 - **Refined Theme Integration:** Adjusted theme variable usage in `ChatView.vue` for better consistency.
 - **Committed:** Committed theme integration refinements (Commit `a343f92`).
+- **Simplified Development Workflow:**
+  - Removed unnecessary `dev.js` script.
+  - Updated tasks to use watch mode for better development experience.
+  - Updated launch configurations for streamlined debugging.
+  - Updated README.md with clear development instructions.
 - **Current Task:** Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).

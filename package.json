@@ -67,9 +67,7 @@
     "test:e2e": "vscode-test",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "dev": "node dev.js",
-    "dev:ui": "node dev.js --ui-only",
-    "dev:ext": "node dev.js --ext-only"
+    "dev:ui": "pnpm --filter webview-ui dev"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -104,10 +102,11 @@
     "@ai-sdk/togetherai": "^0.2.6",
     "@ai-sdk/xai": "^1.2.7",
     "@openrouter/ai-sdk-provider": "^0.4.5",
+    "@types/axios": "^0.14.4",
     "ai": "^4.3.2",
+    "axios": "^1.8.4",
     "chrome-ai": "^1.11.1",
     "ollama-ai-provider": "^1.2.0",
-    "open": "^9.1.0",
     "zod": "^3.24.2"
   }
 }

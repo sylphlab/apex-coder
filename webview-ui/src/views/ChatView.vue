@@ -171,6 +171,15 @@ const handleBlur = () => {
           Refresh
         </button>
         <button
+          @click="$router.push('/api-keys')"
+          class="btn-nordic-ghost text-xs flex items-center px-2.5 py-1.5"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v-1l1-1 1-1-1.243-.243A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd" />
+          </svg>
+          API Keys
+        </button>
+        <button
           @click="emit('changeSettings')"
           class="btn-nordic-ghost text-xs flex items-center px-2.5 py-1.5"
         >

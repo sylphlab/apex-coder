@@ -60,17 +60,18 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "pnpm: compile",
+			"label": "pnpm: watch",
 			"type": "shell",
-			"command": "pnpm run compile",
+			"command": "pnpm run watch",
 			"problemMatcher": [
-				"$tsc",
+				"$tsc-watch",
 		        "$eslint-compact"
 			],
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
+			"isBackground": true,
 		    "presentation": {
 		        "reveal": "silent",
 		        "clear": true
@@ -87,7 +88,15 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "Start Vite Dev Server",
+			"label": "Start Full Dev Environment",
+			"dependsOn": [
+				"pnpm: watch",
+				"Start Webview UI Dev Server"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Webview UI Dev Server",
 			"type": "shell",
 			"command": "pnpm --filter webview-ui dev",
 			"isBackground": true,
@@ -106,27 +115,9 @@
 			},
 			"presentation": {
 				"reveal": "always",
-				"panel": "dedicated"
-			}
-		},
-		{
-			"label": "Start Full Dev Environment",
-			"dependsOn": [
-				"pnpm: compile",
-				"Start Vite Dev Server"
-			],
-			"problemMatcher": []
-		},
-		{
-			"label": "Start Dev Server Only",
-			"type": "shell",
-			"command": "pnpm --filter webview-ui dev",
-			"presentation": {
-				"reveal": "always",
 				"panel": "dedicated",
 				"clear": true
-			},
-			"problemMatcher": []
+			}
 		}
 	]
 }

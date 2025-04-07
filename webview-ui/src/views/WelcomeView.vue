@@ -83,8 +83,8 @@ setTimeout(() => {
 
       <!-- Action buttons -->
       <div class="p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <button
             @click="startChatting"
             class="btn-nordic-primary flex items-center justify-center"
             :class="{ 'opacity-50 cursor-not-allowed': !props.isModelInitialized }"
@@ -95,7 +95,7 @@ setTimeout(() => {
             </svg>
             Start Chatting
           </button>
-          <button 
+          <button
             @click="setupAI"
             class="btn-nordic-secondary flex items-center justify-center"
           >
@@ -105,6 +105,17 @@ setTimeout(() => {
             Configure AI
           </button>
         </div>
+        
+        <!-- API Key Settings button -->
+        <button
+          @click="router.push('/api-keys')"
+          class="btn-nordic-ghost w-full flex items-center justify-center py-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v-1l1-1 1-1-1.243-.243A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd" />
+          </svg>
+          Manage API Keys
+        </button>
       </div>
     </div>
 
