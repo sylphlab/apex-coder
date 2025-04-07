@@ -34,6 +34,7 @@
 - **Implemented (Frontend):** Changed Provider/Model inputs to dropdowns in `App.vue` setup form.
 - **Refactored:** Added development mode flag (`IS_DEVELOPMENT`) in `extension.ts` to enable loading Webview from Vite dev server for hot-reloading.
 - **Configured:** Added compound launch configuration to `.vscode/launch.json` for easier development workflow.
+- **Configured:** Enabled CORS in Vite dev server config (`webview-ui/vite.config.ts`).
 - **Ready for Testing:** Test Vercel AI SDK integration via the complete Webview setup and chat flow. <!-- Updated Status -->
 - Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).
