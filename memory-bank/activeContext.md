@@ -1,12 +1,12 @@
-<!-- Version: 1.16 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.24 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
 **MAJOR PIVOT:** Switched backend AI library from Google Genkit to **Vercel AI SDK**.
 
-**Current Status:** Foundational structure (Extension, WebView) complete. Basic communication tested. Project structure moved to root. Genkit integration attempt abandoned. Refactoring to Vercel AI SDK complete (code implemented).
+**Current Status:** Foundational structure (Extension, WebView) complete. Basic communication tested. Project structure moved to root. Vercel AI SDK integrated. UI styling refactored to use UnoCSS. Auto-panel display implemented. **UnoCSS styles confirmed working in both browser and WebView.**
 
-**Focus:** Testing the Vercel AI SDK integration within the standard VS Code environment.
+**Focus:** **UI Overhaul** - Redesigning the WebView UI (`App.vue`) for a modern, minimalist Nordic aesthetic using UnoCSS.
 
 **Activation Issue Resolved:** Previous activation failures were identified as specific to the Cursor editor environment. Standard VS Code environment activates the extension correctly. User has pulled the project state corresponding to the completed Vercel AI SDK refactoring.
 
@@ -32,22 +32,39 @@
     9.  **Refactored:** Modified `src/extension.ts` to support loading Webview content from Vite dev server (`IS_DEVELOPMENT = true`) for hot-reloading during development.
     10. **Configured:** Updated `.vscode/launch.json` with a compound launch configuration ("Extension + Vite Dev") to automatically start both the extension host and the Vite dev server when pressing F5.
     11. **Configured:** Enabled CORS in `webview-ui/vite.config.ts` to allow the Webview (running in development mode) to fetch resources from the Vite dev server.
-8.  **Ready for Testing:** Test the complete setup and chat flow. This includes: <!-- Updated Status -->
-    *   **Build Vue App:** Run `pnpm --filter webview-ui build` in the project root.
-    *   Running the extension (F5), executing `Apex Coder: Show Apex Coder Panel` (should now show the Vue app without access errors).
-    *   Verifying the setup screen appears if config is missing.
-    *   Completing the setup via the Webview interface.
-    *   Verifying the chat interface appears after setup.
-    *   Testing sending a message and receiving the streamed response.
-    *   Testing sending a message from the Vue app and receiving the streamed response.
+12. **Fix:** Resolved `CodeExpectedError` by adding `apexCoder.ai.provider`, `modelId`, and `baseUrl` to `contributes.configuration` in `package.json`.
+13. **UI Refactor (UnoCSS):**
+    *   Installed UnoCSS and presets (`@unocss/preset-uno`, `@unocss/preset-attributify`, `@unocss/preset-icons`, `@unocss/reset`) in `webview-ui`.
+    *   Created `webview-ui/uno.config.ts`.
+    *   Integrated UnoCSS Vite plugin in `webview-ui/vite.config.ts`.
+    *   Imported `virtual:uno.css` and reset in `webview-ui/src/main.ts`.
+    *   Removed old CSS files (`app.css`, `style.css`) and import from `App.vue`.
+    *   Rewrote `<template>` in `App.vue` using UnoCSS utility classes.
+    *   **Troubleshooting:** Styles disappeared in Webview and browser.
+14. **Auto-Display Panel:**
+    *   Added `onStartupFinished` to `activationEvents` in `package.json`.
+    *   Added logic to `activate` in `extension.ts` to execute `apex-coder.showPanel` command on startup.
+15. **Fix Attempt (UnoCSS):** Added `'unsafe-inline'` to `style-src` in development CSP within `getWebviewContent` in `extension.ts`.
+16. **Fix Attempt (UnoCSS):** Reverted `uno.config.ts` (removed `content` property) and re-added reset import to `main.ts`.
+17. **Tested & Confirmed:** UnoCSS styles are restored correctly in the **browser** (`http://localhost:5173`).
+18. **Tested & Confirmed:** UnoCSS styles are correctly applied within the **VS Code WebView panel**. The underlying styling issue is resolved.
+19. **Current Task:** Begin UI overhaul for a modern Nordic aesthetic.
+    *   Analyze current `webview-ui/src/App.vue` structure.
+    *   Propose initial layout and style changes using UnoCSS.
 
 **Decisions Made:**
 - Project Name: Apex Coder
 - Core Tech Stack: VSCode Ext (TS), Vue.js (WebView), **Vercel AI SDK (Integrated)**
 - MVP Focus: Chat Agent, Streaming, Tool Calling (Vercel AI SDK equivalent), Flexible Config, Checkpointing (Vercel AI SDK equivalent).
 - Integration Approach: Integrate Vercel AI SDK directly into Extension Host (方案 A).
+- UI Styling: **UnoCSS** (replacing previous manual CSS).
+- Activation: Activate on command and **on startup**, automatically show panel.
 
 **Open Questions/Risks:**
 - Performance of Vercel AI SDK within Extension Host.
 - Handling diverse provider configurations dynamically with Vercel AI SDK.
 - Secure credential handling with Vercel AI SDK.
+- Performance of Vercel AI SDK within Extension Host.
+- Handling diverse provider configurations dynamically with Vercel AI SDK.
+- Secure credential handling with Vercel AI SDK.
+- Fine-tuning UnoCSS styles for better VS Code theme integration (part of UI overhaul).

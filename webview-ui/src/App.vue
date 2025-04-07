@@ -1,7 +1,8 @@
-<script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'; // Added watch
+rol<script setup lang="ts">
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue';
+import { useRouter } from 'vue-router'; // Import useRouter
 import { vscode } from './vscode';
-
+// Removed import './app.css'; as UnoCSS handles styles now
 // --- Configuration State ---
 const providerSet = ref<boolean>(false);
 const apiKeySet = ref<boolean>(false);
@@ -10,94 +11,79 @@ const configuredProvider = ref<string | null>(null);
 const configuredModelId = ref<string | null>(null);
 const configError = ref<string | null>(null);
 
-// --- Setup Form State ---
-const setupProvider = ref<string>(''); // Now bound to select
-const setupModelId = ref<string>(''); // Now bound to select or input
+// --- State passed down to views ---
+// Setup Form State
+const setupProvider = ref<string>('');
+const setupModelId = ref<string>('');
 const setupApiKey = ref<string>('');
 const setupBaseUrl = ref<string>('');
-const setupCustomModelId = ref<string>(''); // For custom Ollama models etc.
+const setupCustomModelId = ref<string>('');
 
-// --- Provider & Model Options ---
+// Provider & Model Options (remains in App.vue as it's shared config data)
 const providerOptions = ref([
+  { value: '', label: '-- Select Provider --', models: [], requiresApiKey: false, requiresBaseUrl: false, allowCustomModel: false },
   {
-    value: '', label: '-- Select Provider --', models: [], requiresApiKey: false, requiresBaseUrl: false, allowCustomModel: false,
-  },
-  {
-    value: 'googleai',
-    label: 'Google AI (Gemini)',
+    value: 'googleai', label: 'Google AI (Gemini)',
     models: [
       { value: '', label: '-- Select Model --' },
-      { value: 'models/gemini-1.5-pro', label: 'Gemini 1.5 Pro' }, // Reordered based on common usage
+      { value: 'models/gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
       { value: 'models/gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-      { value: 'models/gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' }, // Added from scrape
-      { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' }, // Added from scrape
-      { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' }, // Added from scrape
-      { value: 'models/gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro (Preview 03-25)' }, // Added by user
-      { value: 'models/gemini-2.5-pro-exp-03-25', label: 'Gemini 2.5 Pro (Exp 03-25)' }, // Added by user
+      { value: 'models/gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' },
+      { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+      { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
+      { value: 'models/gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro (Preview 03-25)' },
+      { value: 'models/gemini-2.5-pro-exp-03-25', label: 'Gemini 2.5 Pro (Exp 03-25)' },
     ],
-    requiresApiKey: true,
-    requiresBaseUrl: false,
-    allowCustomModel: false, // Google usually requires specific model names
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
   },
   {
-    value: 'openai',
-    label: 'OpenAI (GPT)',
+    value: 'openai', label: 'OpenAI (GPT)',
     models: [
       { value: '', label: '-- Select Model --' },
       { value: 'gpt-4o', label: 'GPT-4o' },
       { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
       { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
     ],
-    requiresApiKey: true,
-    requiresBaseUrl: false,
-    allowCustomModel: false,
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
   },
   {
-    value: 'anthropic',
-    label: 'Anthropic (Claude)',
-     models: [
+    value: 'anthropic', label: 'Anthropic (Claude)',
+    models: [
       { value: '', label: '-- Select Model --' },
       { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet' },
       { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
       { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
       { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
     ],
-    requiresApiKey: true,
-    requiresBaseUrl: false,
-    allowCustomModel: false,
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
   },
   {
-    value: 'ollama',
-    label: 'Ollama (Local)',
+    value: 'ollama', label: 'Ollama (Local)',
     models: [
-       { value: '', label: '-- Select Common Model (or enter custom below) --' },
-       { value: 'llama3', label: 'Llama 3 (Default)' },
-       { value: 'mistral', label: 'Mistral (Default)' },
-       { value: 'codellama', label: 'Code Llama (Default)' },
-       // Add other common Ollama models if desired
+      { value: '', label: '-- Select Common Model (or enter custom below) --' },
+      { value: 'llama3', label: 'Llama 3 (Default)' },
+      { value: 'mistral', label: 'Mistral (Default)' },
+      { value: 'codellama', label: 'Code Llama (Default)' },
     ],
-    requiresApiKey: false, // Ollama doesn't use API keys
-    requiresBaseUrl: true, // Ollama usually needs a Base URL
-    allowCustomModel: true, // Allow user to specify other local models
+    requiresApiKey: false, requiresBaseUrl: true, allowCustomModel: true,
   },
 ]);
 
+// Computed properties derived from setup state (needed by both App and SetupView)
 const selectedProviderDetails = computed(() => {
   return providerOptions.value.find(p => p.value === setupProvider.value);
 });
-
 const availableModels = computed(() => {
   return selectedProviderDetails.value?.models || [];
 });
 
-// Watcher to reset model selection when provider changes
+// Watcher remains in App.vue as it modifies setup state held here
 watch(setupProvider, () => {
-  setupModelId.value = ''; // Reset dropdown selection
-  setupCustomModelId.value = ''; // Reset custom input
+  setupModelId.value = '';
+  setupCustomModelId.value = '';
 });
 
-
-// --- Chat State ---
+// --- Chat State (remains in App.vue as it's core application state) ---
 interface CoreMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -107,10 +93,25 @@ interface CoreMessage {
 const chatMessages = ref<CoreMessage[]>([]);
 const currentInput = ref<string>('');
 const isLoading = ref<boolean>(false);
+const thinkingStepText = ref<string | null>(null); // State for thinking step
 
-const isConfigComplete = computed(() => providerSet.value && apiKeySet.value); // Keep apiKeySet logic for simplicity, backend handles Ollama case
+const isConfigComplete = computed(() => {
+  if (!providerSet.value) return false; // Must have a provider selected
+
+  const providerDetails = selectedProviderDetails.value; // Use the existing computed property
+
+  // If the selected provider requires an API key, check if it's set
+  if (providerDetails?.requiresApiKey) {
+    return apiKeySet.value;
+  }
+
+  // If the provider does NOT require an API key (e.g., Ollama),
+  // then configuration is complete just by having the provider set.
+  return true;
+});
 
 let removeListener: (() => void) | null = null;
+const router = useRouter(); // Get router instance
 
 const getConfigStatus = () => {
   console.log('Requesting config status...');
@@ -155,7 +156,16 @@ const saveConfiguration = () => {
 };
 
 const sendChatMessage = async () => {
-  if (!currentInput.value.trim() || isLoading.value || !isConfigComplete.value) return;
+  console.log('[sendChatMessage] Attempting to send:', {
+    input: currentInput.value.trim(),
+    isLoading: isLoading.value,
+    isConfigComplete: isConfigComplete.value,
+    isModelInitialized: isModelInitialized.value // Log this crucial state
+  });
+  if (!currentInput.value.trim() || isLoading.value || !isConfigComplete.value || !isModelInitialized.value) { // Added !isModelInitialized check here explicitly for logging clarity, though it's covered by :disabled
+      console.warn('[sendChatMessage] Aborted due to conditions.');
+      return;
+  }
 
   const userMessageContent = currentInput.value;
   const messageId = `msg-${Date.now()}`;
@@ -164,15 +174,16 @@ const sendChatMessage = async () => {
   currentInput.value = '';
   isLoading.value = true;
 
-  chatMessages.value.push({ role: 'assistant', content: '', id: messageId });
+  // chatMessages.value.push({ role: 'assistant', content: '', id: messageId }); // REMOVED: Don't add empty bubble immediately
   await nextTick();
-  scrollToBottom();
+  // scrollToBottom(); // Removed: Scrolling is handled within ChatView now
 
-  console.log('Sending sendMessage to extension:', userMessageContent);
+  console.log('[sendChatMessage] Conditions met. Posting message to extension:', { id: messageId, text: userMessageContent });
   vscode.postMessage({
     command: 'sendMessage',
     payload: { id: messageId, text: userMessageContent }
   });
+  console.log('[sendChatMessage] Message posted.');
 };
 
 const handleExtensionMessage = (event: MessageEvent<any>) => {
@@ -185,6 +196,10 @@ const handleExtensionMessage = (event: MessageEvent<any>) => {
   }
 
   switch (message.command) {
+    case 'aiThinkingStep': // Handle new message type
+      thinkingStepText.value = message.payload?.text ?? null;
+      isLoading.value = true; // Ensure loading is true when thinking starts
+      break;
     case 'configStatus':
     case 'configSaved': // Treat saved same as status update for UI
       console.log('Handling configStatus/configSaved:', message.payload);
@@ -216,10 +231,31 @@ const handleExtensionMessage = (event: MessageEvent<any>) => {
     case 'aiResponseChunk':
       const chunkPayload = message.payload;
       if (chunkPayload && chunkPayload.id) {
-        const msgIndex = chatMessages.value.findIndex(m => m.role === 'assistant' && m.id === chunkPayload.id);
+        // Ensure loading state stays true and thinking text persists during streaming
+        isLoading.value = true;
+        let msgIndex = chatMessages.value.findIndex(m => m.role === 'assistant' && m.id === chunkPayload.id);
+
+        // If assistant message doesn't exist yet, create it
+        if (msgIndex === -1) {
+            chatMessages.value.push({
+                role: 'assistant',
+                content: '',
+                id: chunkPayload.id
+            });
+            // Find the index of the newly added message
+            msgIndex = chatMessages.value.length - 1;
+             // Optional: Clear generic "Thinking..." text now that response starts
+             if (thinkingStepText.value === 'Thinking...') {
+               thinkingStepText.value = null; // Or set "Receiving response..."
+             }
+        }
+
+        // Append chunk to the (now guaranteed existing) message
         if (msgIndex !== -1) {
-          chatMessages.value[msgIndex].content += chunkPayload.text || '';
-          scrollToBottom();
+             chatMessages.value[msgIndex].content += chunkPayload.text || '';
+        } else {
+            // Should not happen with the logic above, but log if it does
+            console.error(`Could not find or create assistant message with id ${chunkPayload.id}`);
         }
       }
       break;
@@ -231,7 +267,7 @@ const handleExtensionMessage = (event: MessageEvent<any>) => {
          // const msgIndex = chatMessages.value.findIndex(m => m.id === completePayload.id); // Removed unused variable
          // No specific action needed on complete for now, just stop loading
         isLoading.value = false;
-        scrollToBottom();
+        // scrollToBottom(); // Removed: Handled in ChatView
       }
       break;
 
@@ -244,7 +280,9 @@ const handleExtensionMessage = (event: MessageEvent<any>) => {
           error: true
       });
       isLoading.value = false;
-      scrollToBottom();
+      thinkingStepText.value = null; // Clear thinking text on error
+      thinkingStepText.value = null; // Clear thinking text on complete
+      // scrollToBottom(); // Removed: Handled in ChatView
       break;
 
     default:
@@ -252,17 +290,12 @@ const handleExtensionMessage = (event: MessageEvent<any>) => {
   }
 };
 
-const chatContainer = ref<HTMLElement | null>(null);
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-    }
-  });
-};
+// Removed chatContainerRef and scrollToBottom function, as scrolling is handled within ChatView
 
-onMounted(() => {
+onMounted(async () => { // Make async to await initial navigation
   removeListener = vscode.onMessage(handleExtensionMessage);
+  // Request status first, then navigate based on the initial response
+  // The handleExtensionMessage function will trigger the initial navigation
   getConfigStatus();
 });
 
@@ -275,309 +308,40 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="container">
-    <h1>Apex Coder</h1>
+  <!-- Use VS Code theme variables for better integration -->
+  <div class="h-screen flex flex-col box-border p-5" style="background-color: var(--vscode-sideBar-background, white); color: var(--vscode-foreground, black); font-family: var(--vscode-font-family, sans-serif);">
+    <h1 class="text-center mb-6 text-xl font-light" style="color: var(--vscode-foreground, black);">Apex Coder</h1>
 
-    <!-- Setup Form (v-if not configured) -->
-    <div v-if="!isConfigComplete" class="setup-form">
-      <h2>Setup AI Provider</h2>
-      <p>Please configure your AI provider to start using Apex Coder.</p>
+    <!-- Router View will render either SetupView or ChatView -->
+    <router-view
+      :provider-options="providerOptions"
+      :setup-provider="setupProvider"
+      :setup-model-id="setupModelId"
+      :setup-api-key="setupApiKey"
+      :setup-base-url="setupBaseUrl"
+      :setup-custom-model-id="setupCustomModelId"
+      :config-error="configError"
+      :selected-provider-details="selectedProviderDetails"
+      :available-models="availableModels"
+      @update:setupProvider="setupProvider = $event"
+      @update:setupModelId="setupModelId = $event"
+      @update:setupApiKey="setupApiKey = $event"
+      @update:setupBaseUrl="setupBaseUrl = $event"
+      @update:setupCustomModelId="setupCustomModelId = $event"
+      @save-configuration="saveConfiguration"
 
-      <!-- Provider Dropdown -->
-      <div class="form-group">
-        <label for="provider-select">Provider:</label>
-        <select id="provider-select" v-model="setupProvider">
-          <option v-for="option in providerOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Model Dropdown (conditional) -->
-      <div class="form-group" v-if="setupProvider && availableModels.length > 0">
-        <label for="modelId-select">Model:</label>
-        <select id="modelId-select" v-model="setupModelId">
-           <option v-for="model in availableModels" :key="model.value" :value="model.value">
-             {{ model.label }}
-           </option>
-        </select>
-      </div>
-
-      <!-- Custom Model ID Input (conditional, e.g., for Ollama) -->
-       <div class="form-group" v-if="selectedProviderDetails?.allowCustomModel">
-         <label for="customModelId">Custom Model ID (if not in list):</label>
-         <input type="text" id="customModelId" v-model="setupCustomModelId" placeholder="e.g., my-local-model:latest">
-       </div>
-
-       <!-- API Key Input (conditional) -->
-       <div class="form-group" v-if="selectedProviderDetails?.requiresApiKey">
-         <label for="apiKey">API Key:</label>
-         <input type="password" id="apiKey" v-model="setupApiKey" placeholder="Enter your API Key">
-       </div>
-
-       <!-- Base URL Input (conditional) -->
-       <div class="form-group" v-if="selectedProviderDetails?.requiresBaseUrl">
-         <label for="baseUrl">Base URL (Optional for Ollama):</label>
-         <input type="text" id="baseUrl" v-model="setupBaseUrl" placeholder="e.g., http://localhost:11434">
-       </div>
-
-       <!-- Error Message -->
-       <div v-if="configError" class="error-message">
-           Error: {{ configError }}
-       </div>
-
-      <button @click="saveConfiguration">Save Configuration</button>
-       <hr>
-       <p>Current Status: Provider Set? {{ providerSet }}, API Key Set? {{ apiKeySet }}, Model Initialized? {{ isModelInitialized }}</p>
-       <button @click="getConfigStatus">Refresh Status</button>
-    </div>
-
-    <!-- Chat Interface (v-if configured) -->
-    <div v-else class="chat-app">
-       <p>
-           Provider: <strong>{{ configuredProvider }}</strong> |
-           Model: <strong>{{ configuredModelId || 'default' }}</strong> |
-           Initialized: <strong :class="{ 'status-ok': isModelInitialized, 'status-error': !isModelInitialized }">{{ isModelInitialized ? 'Yes' : 'No' }}</strong>
-           <button @click="getConfigStatus" :disabled="isLoading">Refresh Status</button>
-           <button @click="providerSet = false; apiKeySet = false; isModelInitialized = false;">Change Settings</button> <!-- Reset status when changing -->
-       </p>
-       <hr>
-       <div class="chat-messages" ref="chatContainer">
-         <div v-for="(msg) in chatMessages" :key="msg.id || Math.random()" :class="['message', msg.role, { error: msg.error }]">
-           <span class="role">{{ msg.role }}</span>
-           <pre class="content">{{ msg.content }}</pre>
-         </div>
-         <div v-if="isLoading" class="message assistant loading-placeholder">
-           <span class="role">assistant</span>
-           <span class="content loading">▍</span>
-         </div>
-       </div>
-
-       <div class="chat-input">
-         <textarea
-           v-model="currentInput"
-           placeholder="Enter your message..."
-           @keydown.enter.prevent="sendChatMessage"
-           :disabled="isLoading || !isModelInitialized"
-         ></textarea>
-         <button @click="sendChatMessage" :disabled="isLoading || !currentInput.trim() || !isModelInitialized">
-           {{ isLoading ? 'Thinking...' : 'Send' }}
-         </button>
-       </div>
-    </div>
+      :chat-messages="chatMessages"
+      :current-input="currentInput"
+      :is-loading="isLoading"
+      :is-model-initialized="isModelInitialized"
+      :configured-provider="configuredProvider"
+      :configured-model-id="configuredModelId"
+      :thinking-step-text="thinkingStepText"
+      @update:currentInput="currentInput = $event"
+      @send-chat-message="sendChatMessage"
+      @get-config-status="getConfigStatus"
+      @change-settings="providerSet = false; apiKeySet = false; isModelInitialized = false; router.push('/setup')"
+    ></router-view>
 
   </div>
 </template>
-
-<style scoped>
-.container {
-  padding: 15px;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  background-color: var(--vscode-sideBar-background); /* Match sidebar */
-  color: var(--vscode-foreground);
-}
-
-h1 {
-  color: var(--vscode-editor-foreground);
-  text-align: center;
-  margin-top: 0;
-}
-h2 {
-    margin-top: 0;
-    color: var(--vscode-editor-foreground);
-}
-
-hr {
-    border: none;
-    border-top: 1px solid var(--vscode-editorWidget-border);
-    margin: 15px 0;
-}
-
-/* --- Setup Form --- */
-.setup-form {
-  /* background-color: var(--vscode-sideBar-background); */
-  padding: 20px;
-  border-radius: 5px;
-  /* border: 1px solid var(--vscode-sideBar-border, transparent); */
-}
-.form-group {
-  margin-bottom: 15px;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--vscode-foreground);
-  font-size: 0.9em;
-}
-.form-group input[type="text"],
-.form-group input[type="password"],
-.form-group select /* Style select elements */
- {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--vscode-input-border);
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border-radius: 3px;
-  box-sizing: border-box;
-}
-/* Add focus styles */
-.form-group input[type="text"]:focus,
-.form-group input[type="password"]:focus,
-.form-group select:focus {
-    outline: 1px solid var(--vscode-focusBorder);
-    border-color: var(--vscode-focusBorder);
-}
-
-.error-message {
-    color: var(--vscode-errorForeground);
-    margin-top: 10px;
-    margin-bottom: 10px;
-    padding: 8px;
-    background-color: rgba(255, 0, 0, 0.1);
-    border: 1px solid var(--vscode-errorForeground);
-    border-radius: 3px;
-}
-
-
-/* --- Chat App --- */
-.chat-app {
-  display: flex;
-  flex-direction: column;
-  height: 100%; /* Take remaining height */
-  flex-grow: 1; /* Allow chat app to grow */
-  overflow: hidden; /* Prevent container overflow */
-}
-.chat-app p { /* Style status paragraph */
-    font-size: 0.9em;
-    color: var(--vscode-descriptionForeground);
-    margin-bottom: 10px;
-}
-.chat-app p strong {
-    color: var(--vscode-foreground);
-}
-.chat-app p button {
-    margin-left: 10px;
-    padding: 2px 8px;
-    font-size: 0.85em;
-}
-.status-ok {
-    color: var(--vscode-terminal-ansiGreen); /* Use VS Code theme color */
-}
-.status-error {
-    color: var(--vscode-errorForeground); /* Use VS Code theme color */
-}
-
-
-.chat-messages {
-  flex-grow: 1;
-  overflow-y: auto;
-  padding: 10px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-editorWidget-border);
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-
-.message {
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  max-width: 85%;
-  word-wrap: break-word;
-}
-
-.message .role {
-  font-weight: bold;
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.9em;
-  text-transform: capitalize;
-  color: var(--vscode-textLink-foreground);
-}
-
-.message.user {
-  background-color: var(--vscode-list-activeSelectionBackground);
-  color: var(--vscode-list-activeSelectionForeground);
-  margin-left: auto; /* Align user messages to the right */
-  text-align: right;
-}
-.message.user .role {
-    color: var(--vscode-list-activeSelectionForeground); /* Adjust role color for user */
-}
-
-
-.message.assistant {
-  background-color: var(--vscode-sideBar-background);
-  color: var(--vscode-sideBar-foreground);
-  margin-right: auto; /* Align assistant messages to the left */
-  text-align: left;
-}
-.message.assistant.error {
-    background-color: rgba(255, 0, 0, 0.1);
-    border: 1px solid var(--vscode-errorForeground);
-    color: var(--vscode-errorForeground);
-}
-.message.assistant.error .role {
-    color: var(--vscode-errorForeground);
-}
-
-
-.message .content {
-  white-space: pre-wrap; /* Preserve whitespace and wrap */
-}
-.loading-placeholder .content.loading {
-    display: inline-block;
-    animation: blink 1s step-end infinite;
-}
-@keyframes blink {
-  50% { opacity: 0; }
-}
-
-
-.chat-input {
-  display: flex;
-  margin-top: 10px;
-  border-top: 1px solid var(--vscode-editorWidget-border);
-  padding-top: 10px;
-}
-
-.chat-input textarea {
-  flex-grow: 1;
-  padding: 10px;
-  border: 1px solid var(--vscode-input-border);
-  border-radius: 4px;
-  margin-right: 10px;
-  resize: none; /* Prevent manual resizing */
-  min-height: 40px; /* Minimum height */
-  max-height: 150px; /* Maximum height before scrolling */
-  overflow-y: auto; /* Allow scrolling within textarea */
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-}
-.chat-input textarea:focus {
-    outline: 1px solid var(--vscode-focusBorder);
-    border-color: var(--vscode-focusBorder);
-}
-
-button {
-  padding: 10px 15px;
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: 1px solid var(--vscode-button-border, transparent);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-button:hover {
-  background-color: var(--vscode-button-hoverBackground);
-}
-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-</style>

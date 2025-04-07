@@ -1,9 +1,13 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import UnoCSS from 'unocss/vite' // Import UnoCSS
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    UnoCSS(), // Add UnoCSS plugin
+  ],
   server: { // Add server configuration
     cors: true, // Enable CORS for all origins during development
     // You might need more specific CORS settings in a real-world scenario

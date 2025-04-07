@@ -1,14 +1,43 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { initializeAiSdkModel, getLanguageModel, AiConfig, getCurrentAiConfig } from './ai-sdk/configLoader';
-import { streamText } from 'ai'; // Import streamText
+import { initializeAiSdkModel, getLanguageModel, AiConfig } from './ai-sdk/configLoader'; // Removed getCurrentAiConfig as it's unused now
+import { streamText, tool } from 'ai'; // Import streamText and tool
+import { z } from 'zod'; // Import zod for schema definition
 
 // --- Development Flag ---
 // Set to true to load from Vite dev server (run `pnpm --filter webview-ui dev` first)
 // Set to false to load from the production build in `dist`
 const IS_DEVELOPMENT = true; // <<< CHANGE THIS FOR PRODUCTION BUILD
 const DEV_SERVER_URL = 'http://localhost:5173'; // Default Vite dev server port
+
+// --- Tool Definition ---
+const openFileTool = tool({
+	description: 'Opens a specified file in the VS Code editor.',
+	parameters: z.object({
+		path: z.string().describe('The relative path to the file to open (e.g., "src/main.ts").'),
+	}),
+	async execute({ path: relativePath }) {
+		try {
+			console.log(`[Apex Coder Tool] Attempting to open file: ${relativePath}`);
+			const workspaceFolders = vscode.workspace.workspaceFolders;
+			if (!workspaceFolders) {
+				throw new Error('No workspace folder open.');
+			}
+			// Assume path is relative to the first workspace folder
+			const absolutePath = vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath);
+			const document = await vscode.workspace.openTextDocument(absolutePath);
+			await vscode.window.showTextDocument(document);
+			console.log(`[Apex Coder Tool] Successfully opened file: ${absolutePath.fsPath}`);
+			return { success: true, path: relativePath }; // Return success status
+		} catch (error: any) {
+			console.error(`[Apex Coder Tool] Error opening file ${relativePath}:`, error);
+			vscode.window.showErrorMessage(`Failed to open file "${relativePath}": ${error.message}`);
+			return { success: false, path: relativePath, error: error.message }; // Return error status
+		}
+	}
+});
+
 export async function activate(context: vscode.ExtensionContext) { // Make activate async
 
 	console.log('[Apex Coder] Activating extension...');
@@ -241,19 +270,51 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 	 				try {
 	 					const model = getLanguageModel(); // Should be initialized now
 	 					const userMessage = message.payload.text;
-	 					console.log(`[Apex Coder] Sending to AI: ${userMessage}`);
-
-	 					const { textStream } = await streamText({ model: model, prompt: userMessage });
-
 	 					const streamId = message.payload.id || Date.now().toString();
-	 					console.log(`[Apex Coder] Starting stream ${streamId} to webview...`);
-	 					for await (const textPart of textStream) {
-	 						currentPanel?.webview.postMessage({
-	 							command: 'aiResponseChunk',
-	 							payload: { id: streamId, text: textPart }
-	 						});
-	 					}
-	 					console.log(`[Apex Coder] Finished stream ${streamId}.`);
+
+	 					console.log(`[Apex Coder] Sending to AI: ${userMessage}`);
+	 					// Removed the initial generic "Thinking..." message post
+
+	 					const result = await streamText({
+	 						model: model,
+	 						prompt: userMessage,
+	 						tools: { // Add the tools option
+	 							openFile: openFileTool // Pass the defined tool
+	 						},
+	 						async onChunk({ chunk }) {
+	 							// console.log('[Apex Coder] Received chunk:', chunk); // Optional: Log every chunk
+	 							switch (chunk.type) {
+	 								case 'text-delta':
+	 									currentPanel?.webview.postMessage({
+	 										command: 'aiResponseChunk',
+	 										payload: { id: streamId, text: chunk.textDelta }
+	 									});
+	 									break;
+	 								case 'tool-call':
+	 								case 'reasoning':
+	 								case 'source':
+	 								case 'tool-call-streaming-start':
+	 								case 'tool-call-delta':
+	 								    console.log(`[Apex Coder] Received chunk type: ${chunk.type}`, chunk);
+	 									// Send thinking step for non-text chunks
+	 									let thinkingText = `Processing step: ${chunk.type}...`;
+	 									if (chunk.type === 'tool-call') {
+	 										thinkingText = `Calling tool: ${chunk.toolName}...`;
+	 									}
+	 									currentPanel?.webview.postMessage({
+	 										command: 'aiThinkingStep',
+	 										payload: { id: streamId, text: thinkingText }
+	 									});
+	 									break;
+	 							}
+	 						}
+	 					});
+
+	 					// Consume the stream fully (important for streamText)
+	 					// We don't need the final text here as chunks are sent via onChunk
+	 					for await (const part of result.fullStream) { }
+
+	 					console.log(`[Apex Coder] Finished stream ${streamId}. Sending aiResponseComplete.`);
 	 					currentPanel?.webview.postMessage({ command: 'aiResponseComplete', payload: { id: streamId } });
 
 	 				} catch (error) {
@@ -324,6 +385,10 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 	context.subscriptions.push(showPanelCommand, setApiKeyCommand);
 
 	console.log('[Apex Coder] Commands registered. Activation finished.');
+
+	// Automatically show the panel on startup
+	vscode.commands.executeCommand('apex-coder.showPanel');
+	console.log('[Apex Coder] Automatically triggered showPanel command on startup.');
 }
 
 // This method is called when your extension is deactivated
@@ -352,7 +417,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
 				connect-src ${cspSource} ${devServerSource} ${wsSource};
 				img-src ${cspSource} ${devServerSource} data:;
 				script-src 'nonce-${nonce}' ${devServerSource} 'unsafe-eval';
-				style-src ${cspSource} ${devServerSource} 'unsafe-inline';
+				style-src ${cspSource} ${devServerSource} 'unsafe-inline'; /* Allow inline styles for dev */
 				font-src ${cspSource} ${devServerSource};
 			">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">

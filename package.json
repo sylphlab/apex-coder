@@ -9,7 +9,11 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:apex-coder.showPanel",
+    "onCommand:apex-coder.setApiKey",
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -23,7 +27,30 @@
         "title": "Set API Key for AI Provider",
         "category": "Apex Coder"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Apex Coder AI Configuration",
+      "properties": {
+        "apexCoder.ai.provider": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "The AI provider to use (e.g., 'google', 'openai', 'anthropic', 'ollama'). Saved in user/workspace settings."
+        },
+        "apexCoder.ai.modelId": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "The specific model ID to use for the selected provider. Saved in user/workspace settings."
+        },
+        "apexCoder.ai.baseUrl": {
+          "type": ["string", "null"],
+          "default": null,
+          "scope": "machine-overridable",
+          "description": "Optional base URL for providers like Ollama or self-hosted models. Saved in user/workspace settings."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
