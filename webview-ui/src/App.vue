@@ -32,6 +32,8 @@ const providerOptions = ref([
       { value: 'models/gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' }, // Added from scrape
       { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' }, // Added from scrape
       { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' }, // Added from scrape
+      { value: 'models/gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro (Preview 03-25)' }, // Added by user
+      { value: 'models/gemini-2.5-pro-exp-03-25', label: 'Gemini 2.5 Pro (Exp 03-25)' }, // Added by user
     ],
     requiresApiKey: true,
     requiresBaseUrl: false,
