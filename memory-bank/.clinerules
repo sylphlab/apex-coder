@@ -1,0 +1,11 @@
+<!-- Version: 1.0 | Last Updated: 2025-07-04 -->
+
+# Cline Rules: Apex Coder
+
+*(Placeholder for project-specific patterns, preferences, and challenges. To be populated as the project evolves.)*
+
+**Initial Guidelines:**
+- Follow Playbook guidelines for TypeScript, Vue.js, Node.js, and Genkit development.
+- Prioritize clear, maintainable code.
+- Write unit tests for critical logic.
+- Keep Memory Bank files updated after significant changes or decisions.
