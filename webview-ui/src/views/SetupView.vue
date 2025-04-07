@@ -82,16 +82,7 @@ const selectedProvider = computed(() => {
   return providers.value.find(p => p.id === props.setupProvider);
 });
 
-// Format models for dropdown
-const formattedModels = computed(() => {
-  return [
-    { value: '', label: '-- Select Model --' },
-    ...models.value.map(model => ({
-      value: model.id,
-      label: model.name + (model.description ? ` (${model.description})` : '')
-    }))
-  ];
-});
+// Removed unused formattedModels computed property
 </script>
 <template>
   <div class="flex flex-col items-center justify-center h-full px-6 py-8 animate-nordic-fade-in">

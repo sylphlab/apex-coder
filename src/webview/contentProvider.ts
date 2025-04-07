@@ -4,9 +4,9 @@ import * as path from 'path';
 import { logger } from '../utils/logger';
 
 // --- Development Flag & Settings ---
-// TODO: Consider moving these to a dedicated config file or environment variables
-const IS_DEVELOPMENT = process.env.NODE_ENV === 'development'; // Use NODE_ENV
-const DEV_SERVER_URL = 'http://localhost:5174'; // Ensure this matches the running dev server port
+// Force production mode to ensure the welcome page is visible
+const IS_DEVELOPMENT = false;
+const DEV_SERVER_URL = 'http://127.0.0.1:5173'; // Still needed for compilation
 
 /**
  * Generates the HTML content for the webview panel.

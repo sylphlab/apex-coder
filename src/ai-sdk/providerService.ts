@@ -113,7 +113,7 @@ export class ProviderService {
      * Format file size in bytes to human-readable format
      */
     private static formatSize(bytes: number): string {
-        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024) { return bytes + ' B'; }
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));

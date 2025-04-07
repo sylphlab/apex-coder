@@ -1,8 +1,8 @@
-<!-- Version: 1.29 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.30 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Progress: Apex Coder
 
-**Overall Status:** Foundational structure complete. Vercel AI SDK integrated. UI refactored to use UnoCSS. Auto-panel display implemented. **UnoCSS styling issues resolved.** Webview-driven setup flow implemented.
+**Overall Status:** Foundational structure complete. Vercel AI SDK integrated. UI refactored to use UnoCSS. Auto-panel display implemented. **UnoCSS styling issues resolved.** Webview-driven setup flow implemented. **Fixed development workflow and UI issues.**
 
 **Completed Milestones:**
 - Initial requirements gathering and planning.
@@ -68,6 +68,10 @@
   - Updated tasks to use watch mode for better development experience.
   - Updated launch configurations for streamlined debugging.
   - Updated README.md with clear development instructions.
+- **Fixed Development Workflow:**
+  - Fixed hot reload functionality by setting `IS_DEVELOPMENT = false` in `contentProvider.ts`
+  - Suppressed annoying "API Key for provider 'deepseek' not found in secrets" warning
+  - Fixed welcome page black screen issue
 - **Current Task:** Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).

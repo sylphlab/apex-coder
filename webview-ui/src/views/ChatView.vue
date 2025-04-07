@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, defineProps, defineEmits, nextTick, onUpdated, watch, onMounted } from 'vue';
-import * as anime from 'animejs';
+import { ref, defineProps, defineEmits, nextTick, watch, onMounted } from 'vue';
+import { gsap } from 'gsap';
 
 // Define props received from App.vue
 const props = defineProps<{
@@ -78,18 +78,19 @@ watch(() => props.chatMessages, (newMessages, oldMessages) => {
           lastMessageElement.style.opacity = '0';
           lastMessageElement.style.transform = 'translateY(15px)';
           
-          anime.default({
-            targets: lastMessageElement,
-            opacity: [0, 1],
-            translateY: [15, 0],
-            duration: 500,
-            easing: 'spring(1, 80, 10, 0)',
-            complete: () => {
-              // Reset inline styles after animation completes
-              lastMessageElement.style.opacity = '';
-              lastMessageElement.style.transform = '';
+          gsap.fromTo(lastMessageElement,
+            { opacity: 0, y: 15 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.5,
+              ease: "power2.out",
+              onComplete: () => {
+                // Reset inline styles after animation completes
+                gsap.set(lastMessageElement, { clearProps: "all" });
+              }
             }
-          });
+          );
         }
         scrollToBottom(true);
       }, 50);

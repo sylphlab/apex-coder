@@ -8,15 +8,10 @@ export default defineConfig({
     vue(),
     UnoCSS(), // Add UnoCSS plugin
   ],
-  server: { // Add server configuration
+  server: {
     cors: true, // Enable CORS for all origins during development
-    // You might need more specific CORS settings in a real-world scenario
-    // For example:
-    // cors: {
-    //   origin: 'vscode-webview://*', // Allow only webview origins (might need adjustment)
-    //   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    //   credentials: true,
-    // }
+    host: '127.0.0.1', // Explicitly set the host
+    port: 5173, // Explicitly set the port
   },
   build: {
     outDir: 'dist', // Ensure output directory is 'dist'

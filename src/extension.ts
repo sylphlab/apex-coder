@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { PanelManager } from './webview/panelManager';
 import { logger } from './utils/logger';
 import { COMMAND_SET_API_KEY, COMMAND_SHOW_PANEL, SECRET_API_KEY_PREFIX } from './utils/constants';
+import { ProviderService } from './ai-sdk/providerService';
 
 let panelManager: PanelManager | undefined;
 
@@ -25,9 +26,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			const secretKey = `${SECRET_API_KEY_PREFIX}${providerLower}`;
 			const apiKey = await context.secrets.get(secretKey);
 			if (!apiKey) {
-				logger.warn(`API Key for provider '${provider}' not found in secrets. Prompting user.`);
-				// Don't await this, let it run in the background while panel loads
-				vscode.commands.executeCommand(COMMAND_SET_API_KEY);
+				// Skip warning for deepseek to avoid annoying the user
+				if (providerLower !== 'deepseek') {
+					logger.warn(`API Key for provider '${provider}' not found in secrets.`);
+				}
+				// Don't automatically prompt for API key, let the user click the button in the welcome page
 				// Optionally show a non-blocking message
 				// vscode.window.showInformationMessage(`API Key for ${provider} is missing. Please set it up.`);
 			} else {
@@ -54,14 +57,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const setApiKeyDisposable = vscode.commands.registerCommand(COMMAND_SET_API_KEY, async () => {
 		logger.info(`Command executed: ${COMMAND_SET_API_KEY}`);
 		try {
+			// Get all providers from ProviderService
+			const allProviders = await ProviderService.getAllProviders();
+			
+			// Format providers for QuickPick
+			const providerQuickPickItems = allProviders.map(provider => ({
+				label: provider.name,
+				detail: `${provider.category.charAt(0).toUpperCase() + provider.category.slice(1)} provider${!provider.requiresApiKey ? ' (No API key needed)' : ''}`,
+				value: provider.id
+			}));
+			
 			// Show provider selection dropdown
-			const provider = await vscode.window.showQuickPick([
-				{ label: 'Google AI (Gemini)', detail: 'Uses Gemini models', value: 'googleai' },
-				{ label: 'OpenAI (GPT)', detail: 'Uses GPT models', value: 'openai' },
-				{ label: 'Anthropic (Claude)', detail: 'Uses Claude models', value: 'anthropic' },
-				{ label: 'Deepseek', detail: 'Uses Deepseek models', value: 'deepseek' },
-				{ label: 'Ollama (Local)', detail: 'No API key needed', value: 'ollama' },
-			], {
+			const provider = await vscode.window.showQuickPick(providerQuickPickItems, {
 				placeHolder: 'Select AI Provider',
 				ignoreFocusOut: true,
 			});

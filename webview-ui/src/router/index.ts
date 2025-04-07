@@ -29,7 +29,7 @@ const router = createRouter({
 });
 
 // Navigation guard to check configuration status
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   // Allow direct access to welcome and setup pages
   if (to.path === '/' || to.path === '/setup') {
     next();
