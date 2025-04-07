@@ -54,13 +54,19 @@ export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
                 providerInstance = createOllama({ baseURL: config.baseUrl }); // Uses default localhost if baseUrl undefined
                 modelIdentifier = config.modelId || 'llama3'; // Default model
                 break;
-            }
-            // Add cases for other providers like vertexai, mistral, cohere etc.
-            // case 'vertexai': {
-            //     const { createVertex } = await import('@ai-sdk/google-vertex'); // Check actual package name
-            //     providerInstance = createVertex({ location: config.location || 'us-central1' });
-            //     modelIdentifier = config.modelId || 'gemini-1.5-flash';
-            //     break;
+               }
+               case 'deepseek': {
+                const { createDeepSeek } = await import('@ai-sdk/deepseek');
+                providerInstance = createDeepSeek({ apiKey: config.apiKey }); // Uses env var if apiKey is undefined
+                modelIdentifier = config.modelId || 'deepseek-chat'; // Default model
+                break;
+               }
+               // Add cases for other providers like vertexai, mistral, cohere etc.
+               // case 'vertexai': {
+               //     const { createVertex } = await import('@ai-sdk/google-vertex'); // Check actual package name
+               //     providerInstance = createVertex({ location: config.location || 'us-central1' });
+               //     modelIdentifier = config.modelId || 'gemini-1.5-flash';
+               //     break;
             // }
             default:
                 logger.error(`Unsupported AI provider in configLoader: ${config.provider}`);

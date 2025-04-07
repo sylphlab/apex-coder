@@ -67,6 +67,20 @@ const providerOptions = ref([
     ],
     requiresApiKey: false, requiresBaseUrl: true, allowCustomModel: true,
   },
+  {
+    value: 'deepseek',
+    label: 'DeepSeek',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'deepseek-chat', label: 'DeepSeek Chat' },
+      { value: 'deepseek-coder', label: 'DeepSeek Coder' },
+      // { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' }, // Assuming this model ID exists
+      // Add other DeepSeek models if known
+    ],
+    requiresApiKey: true, // DeepSeek requires an API key
+    requiresBaseUrl: false, // Typically doesn't require a base URL unless self-hosted
+    allowCustomModel: false, // Usually specific model IDs
+  },
 ]);
 
 // Computed properties derived from setup state (needed by both App and SetupView)
@@ -222,11 +236,24 @@ const handleExtensionMessage = (event: MessageEvent<any>) => {
           configError.value = `Configuration saved, but failed to initialize model for ${configuredProvider.value || 'selected provider'}. Check model ID, API key, or connection.`;
       }
       break;
+case 'configError':
+  console.error('Configuration error from extension:', message.payload);
+  configError.value = message.payload || 'Unknown error saving configuration.';
+  break;
 
-    case 'configError':
-      console.error('Configuration error from extension:', message.payload);
-      configError.value = message.payload || 'Unknown error saving configuration.';
-      break;
+case 'toolResult': // Handle message indicating tool execution result
+console.log('Tool execution result:', message.payload);
+// Optional: Display a temporary message/toast in the UI about the tool result
+// For now, just log it. We could add a dedicated status area later.
+// Example: Append a system message to chat?
+// chatMessages.value.push({
+// 	role: 'system', // Or 'assistant' with special formatting
+// 	content: `Tool '${message.payload.toolName}' executed. Success: ${message.payload.success}. Message: ${message.payload.message}`,
+// 	id: `tool-${Date.now()}`
+// });
+// scrollToBottom(); // If adding to chat
+break;
+
 
     case 'aiResponseChunk':
       const chunkPayload = message.payload;

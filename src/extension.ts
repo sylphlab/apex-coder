@@ -1,50 +1,91 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { initializeAiSdkModel, getLanguageModel, AiConfig } from './ai-sdk/configLoader'; // Removed getCurrentAiConfig as it's unused now
-import { streamText, tool } from 'ai'; // Import streamText and tool
-import { z } from 'zod'; // Import zod for schema definition
+import { initializeAiSdkModel, getLanguageModel, AiConfig } from './ai-sdk/configLoader';
+import { streamText, tool } from 'ai';
+import { z } from 'zod';
 
 // --- Development Flag ---
-// Set to true to load from Vite dev server (run `pnpm --filter webview-ui dev` first)
-// Set to false to load from the production build in `dist`
 const IS_DEVELOPMENT = true; // <<< CHANGE THIS FOR PRODUCTION BUILD
 const DEV_SERVER_URL = 'http://localhost:5173'; // Default Vite dev server port
 
-// --- Tool Definition ---
-const openFileTool = tool({
-	description: 'Opens a specified file in the VS Code editor.',
-	parameters: z.object({
-		path: z.string().describe('The relative path to the file to open (e.g., "src/main.ts").'),
-	}),
-	async execute({ path: relativePath }) {
-		try {
-			console.log(`[Apex Coder Tool] Attempting to open file: ${relativePath}`);
-			const workspaceFolders = vscode.workspace.workspaceFolders;
-			if (!workspaceFolders) {
-				throw new Error('No workspace folder open.');
-			}
-			// Assume path is relative to the first workspace folder
-			const absolutePath = vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath);
-			const document = await vscode.workspace.openTextDocument(absolutePath);
-			await vscode.window.showTextDocument(document);
-			console.log(`[Apex Coder Tool] Successfully opened file: ${absolutePath.fsPath}`);
-			return { success: true, path: relativePath }; // Return success status
-		} catch (error: any) {
-			console.error(`[Apex Coder Tool] Error opening file ${relativePath}:`, error);
-			vscode.window.showErrorMessage(`Failed to open file "${relativePath}": ${error.message}`);
-			return { success: false, path: relativePath, error: error.message }; // Return error status
-		}
-	}
-});
-
-export async function activate(context: vscode.ExtensionContext) { // Make activate async
+export async function activate(context: vscode.ExtensionContext) {
 
 	console.log('[Apex Coder] Activating extension...');
 
-	// Model initialization state - managed dynamically now
+	// Model initialization state
 	let isModelInitialized = false;
-	let currentAiConfig: AiConfig | null = null; // Store the active config
+	let currentAiConfig: AiConfig | null = null;
+
+	// Webview Panel state
+	let currentPanel: vscode.WebviewPanel | undefined = undefined;
+
+	// --- Tool Definitions (Defined inside activate to access currentPanel) ---
+
+	const openFileTool = tool({
+		description: 'Opens a file in the VSCode editor using a relative path from the workspace root.',
+		parameters: z.object({
+			path: z.string().describe('Workspace-relative file path (e.g., "src/extension.ts")'),
+		}),
+		async execute({ path: relativePath }) {
+			console.log(`[Apex Coder Tool EXECUTE] openFileTool called with path: ${relativePath}`);
+			try {
+				const workspaceFolders = vscode.workspace.workspaceFolders;
+				if (!workspaceFolders) throw new Error('No workspace folder open.');
+				const absolutePath = vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath);
+				const document = await vscode.workspace.openTextDocument(absolutePath);
+				await vscode.window.showTextDocument(document);
+				const successMsg = `Successfully opened file: ${relativePath}`;
+				console.log(`[Apex Coder Tool] ${successMsg}`);
+				// Send result back to webview BEFORE returning result to SDK
+				currentPanel?.webview.postMessage({ command: 'toolResult', payload: { toolName: 'openFile', success: true, message: successMsg, path: relativePath } });
+				return { success: true, path: relativePath }; // Return result for AI SDK
+			} catch (error: any) {
+				const errorMsg = `Failed to open file "${relativePath}": ${error.message}`;
+				console.error(`[Apex Coder Tool] Error opening file ${relativePath}:`, error);
+				vscode.window.showErrorMessage(errorMsg);
+				// Send result back to webview BEFORE returning result to SDK
+				currentPanel?.webview.postMessage({ command: 'toolResult', payload: { toolName: 'openFile', success: false, message: errorMsg, path: relativePath, error: error.message } });
+				return { success: false, path: relativePath, error: error.message }; // Return result for AI SDK
+			}
+		}
+	});
+
+	const readFileTool = tool({
+		description: 'Reads the content of a specified file in the VS Code workspace.',
+		parameters: z.object({
+			path: z.string().describe('The relative path to the file to read (e.g., "src/main.ts").'),
+		}),
+		async execute({ path: relativePath }) {
+			console.log(`[Apex Coder Tool EXECUTE] readFileTool called with path: ${relativePath}`);
+			try {
+				const workspaceFolders = vscode.workspace.workspaceFolders;
+				if (!workspaceFolders) throw new Error('No workspace folder open.');
+				const absolutePath = vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath);
+				const fileContentBytes = await vscode.workspace.fs.readFile(absolutePath);
+				const fileContent = new TextDecoder().decode(fileContentBytes);
+				console.log(`[Apex Coder Tool] Successfully read file: ${relativePath}`);
+				const maxChars = 5000;
+				const truncatedContent = fileContent.length > maxChars
+					? fileContent.substring(0, maxChars) + '\n... [truncated]'
+					: fileContent;
+				const successMsg = `Successfully read file: ${relativePath}`;
+				console.log(`[Apex Coder Tool] ${successMsg}`);
+				// Send result back to webview BEFORE returning result to SDK
+				currentPanel?.webview.postMessage({ command: 'toolResult', payload: { toolName: 'readFile', success: true, message: successMsg, path: relativePath } });
+				// Return content for the AI model
+				return { success: true, path: relativePath, content: truncatedContent }; // Return result for AI SDK
+			} catch (error: any) {
+				const errorMsg = `Failed to read file "${relativePath}": ${error.message}`;
+				console.error(`[Apex Coder Tool] Error reading file ${relativePath}:`, error);
+				vscode.window.showErrorMessage(errorMsg);
+				// Send result back to webview BEFORE returning result to SDK
+				currentPanel?.webview.postMessage({ command: 'toolResult', payload: { toolName: 'readFile', success: false, message: errorMsg, path: relativePath, error: error.message } });
+				return { success: false, path: relativePath, error: error.message }; // Return result for AI SDK
+			}
+		}
+	});
+	// --- End Tool Definitions ---
 
 	// Helper function to attempt model initialization
 	async function tryInitializeModel(forceReinitialize = false): Promise<boolean> {
@@ -53,31 +94,26 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 			return true;
 		}
 		console.log('[Apex Coder] Attempting to initialize AI model...');
-		isModelInitialized = false; // Reset status before attempt
+		isModelInitialized = false;
 		currentAiConfig = null;
-
 		try {
 			const config = vscode.workspace.getConfiguration('apexCoder.ai');
 			const provider = config.get<string>('provider');
 			const modelId = config.get<string>('modelId');
 			const baseUrl = config.get<string>('baseUrl');
-
 			if (!provider) {
 				console.warn('[Apex Coder] AI provider not configured.');
-				return false; // Cannot initialize without provider
+				return false;
 			}
-
 			const secretKey = `apexCoder.apiKey.${provider.toLowerCase()}`;
 			const apiKey = await context.secrets.get(secretKey);
-
 			if (!apiKey && provider.toLowerCase() !== 'ollama') {
 				console.warn(`[Apex Coder] API key for ${provider} not found.`);
-				return false; // Cannot initialize without API key (except Ollama)
+				return false;
 			}
-
 			const aiConfig: AiConfig = { provider, modelId, apiKey, baseUrl };
 			await initializeAiSdkModel(aiConfig);
-			currentAiConfig = aiConfig; // Store successful config
+			currentAiConfig = aiConfig;
 			isModelInitialized = true;
 			console.log('[Apex Coder] AI Model initialized successfully.');
 			return true;
@@ -90,24 +126,15 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 		}
 	}
 
-	// Attempt initial initialization silently on activation (optional, can be deferred)
-	// await tryInitializeModel(); // We'll let the panel trigger the check/init
-
 	// Register command to show the panel
-	let currentPanel: vscode.WebviewPanel | undefined = undefined;
-
-	const showPanelCommand = vscode.commands.registerCommand('apex-coder.showPanel', async () => { // Make async
+	const showPanelCommand = vscode.commands.registerCommand('apex-coder.showPanel', async () => {
 		const columnToShowIn = vscode.window.activeTextEditor
 			? vscode.window.activeTextEditor.viewColumn
 			: undefined;
-
 		console.log('[Apex Coder] Show Panel command triggered.');
-
-		// If we already have a panel, show it and send current status.
 		if (currentPanel) {
 			currentPanel.reveal(columnToShowIn);
 			console.log('[Apex Coder] Revealed existing panel.');
-			// Send current status when revealing existing panel
 			const config = vscode.workspace.getConfiguration('apexCoder.ai');
 			const provider = config.get<string>('provider');
 			const secretKey = provider ? `apexCoder.apiKey.${provider.toLowerCase()}` : undefined;
@@ -116,33 +143,20 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 				command: 'configStatus',
 				payload: {
 					providerSet: !!provider,
-					apiKeySet: apiKeySet || provider?.toLowerCase() === 'ollama', // Ollama might not need key
+					apiKeySet: apiKeySet || provider?.toLowerCase() === 'ollama',
 					provider: provider,
 					modelId: config.get<string>('modelId')
 				}
 			});
 			return;
 		}
-
-		// Otherwise, create a new panel.
 		currentPanel = vscode.window.createWebviewPanel(
-			'apexCoderPanel',
-			'Apex Coder',
-			columnToShowIn || vscode.ViewColumn.One,
-			{
-				enableScripts: true,
-				localResourceRoots: [context.extensionUri], // Allow access to the entire extension root (diagnostic step)
-				retainContextWhenHidden: true // Keep state when panel is hidden
-			}
+			'apexCoderPanel', 'Apex Coder', columnToShowIn || vscode.ViewColumn.One,
+			{ enableScripts: true, localResourceRoots: [context.extensionUri], retainContextWhenHidden: true }
 		);
 		console.log('[Apex Coder] Created new panel.');
-
-		// Set the webview's initial html content
-		// Set HTML content first
 		currentPanel.webview.html = getWebviewContent(currentPanel.webview, context.extensionUri);
 		console.log('[Apex Coder] Set panel HTML content.');
-
-		// Send initial config status AFTER panel is created and HTML is set
 		const config = vscode.workspace.getConfiguration('apexCoder.ai');
 		const provider = config.get<string>('provider');
 		const secretKey = provider ? `apexCoder.apiKey.${provider.toLowerCase()}` : undefined;
@@ -151,7 +165,7 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 			command: 'configStatus',
 			payload: {
 				providerSet: !!provider,
-				apiKeySet: apiKeySet || provider?.toLowerCase() === 'ollama', // Ollama might not need key
+				apiKeySet: apiKeySet || provider?.toLowerCase() === 'ollama',
 				provider: provider,
 				modelId: config.get<string>('modelId')
 			}
@@ -159,177 +173,176 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 		console.log('[Apex Coder] Sent initial configStatus to webview.');
 
 		// Handle messages from the webview
-	 currentPanel.webview.onDidReceiveMessage(
-	 	async message => {
-	 		console.log('[Apex Coder] Received message from webview:', message);
+		currentPanel.webview.onDidReceiveMessage(
+			async message => {
+				console.log('[Apex Coder] Received message from webview:', message);
+				switch (message.command) {
+					case 'alert':
+						vscode.window.showErrorMessage(message.text);
+						return;
+					case 'checkStatus':
+					case 'getConfigStatus':
+						console.log('[Apex Coder] Handling getConfigStatus command...');
+						const config = vscode.workspace.getConfiguration('apexCoder.ai');
+						const provider = config.get<string>('provider');
+						const secretKey = provider ? `apexCoder.apiKey.${provider.toLowerCase()}` : undefined;
+						const apiKeySet = secretKey ? !!(await context.secrets.get(secretKey)) : false;
+						let modelCheckSuccess = false;
+						if (provider && (apiKeySet || provider.toLowerCase() === 'ollama')) {
+							modelCheckSuccess = await tryInitializeModel();
+						} else {
+							isModelInitialized = false;
+							currentAiConfig = null;
+						}
+						currentPanel?.webview.postMessage({
+							command: 'configStatus',
+							payload: {
+								providerSet: !!provider,
+								apiKeySet: apiKeySet || provider?.toLowerCase() === 'ollama',
+								isModelInitialized: modelCheckSuccess,
+								provider: provider,
+								modelId: config.get<string>('modelId')
+							}
+						});
+						console.log('[Apex Coder] Sent configStatus to webview.');
+						return;
+					case 'saveConfiguration':
+						console.log('[Apex Coder] Handling saveConfiguration command...');
+						const { provider: newProvider, modelId: newModelId, apiKey: newApiKey, baseUrl: newBaseUrl } = message.payload;
+						if (!newProvider) {
+							vscode.window.showErrorMessage('Provider name is required.');
+							currentPanel?.webview.postMessage({ command: 'configError', payload: 'Provider name is required.' });
+							return;
+						}
+						if (!newApiKey && newProvider.toLowerCase() !== 'ollama') {
+							vscode.window.showErrorMessage(`API Key is required for ${newProvider}.`);
+							currentPanel?.webview.postMessage({ command: 'configError', payload: `API Key is required for ${newProvider}.` });
+							return;
+						}
+						try {
+							const config = vscode.workspace.getConfiguration('apexCoder.ai');
+							await config.update('provider', newProvider, vscode.ConfigurationTarget.Global);
+							await config.update('modelId', newModelId || undefined, vscode.ConfigurationTarget.Global);
+							await config.update('baseUrl', newBaseUrl || undefined, vscode.ConfigurationTarget.Global);
+							if (newApiKey) {
+								const secretKey = `apexCoder.apiKey.${newProvider.toLowerCase()}`;
+								await context.secrets.store(secretKey, newApiKey);
+								console.log(`[Apex Coder] API Key stored for provider: ${newProvider}`);
+							}
+							const initSuccess = await tryInitializeModel(true);
+							vscode.window.showInformationMessage(`Configuration for ${newProvider} saved successfully.`);
+							currentPanel?.webview.postMessage({
+								command: 'configSaved',
+								payload: {
+									providerSet: true,
+									apiKeySet: !!newApiKey || newProvider.toLowerCase() === 'ollama',
+									isModelInitialized: initSuccess,
+									provider: newProvider,
+									modelId: newModelId
+								}
+							});
+							console.log('[Apex Coder] Configuration saved and model re-initialization attempted.');
+						} catch (error) {
+							console.error('[Apex Coder] Error saving configuration:', error);
+							vscode.window.showErrorMessage(`Failed to save configuration: ${error}`);
+							currentPanel?.webview.postMessage({ command: 'configError', payload: `Failed to save configuration: ${error}` });
+							isModelInitialized = false;
+							currentAiConfig = null;
+						}
+						return;
+					case 'sendMessage':
+						console.log('[Apex Coder] Handling sendMessage command...');
+						if (!isModelInitialized) {
+							const initSuccess = await tryInitializeModel();
+							if (!initSuccess) {
+								vscode.window.showErrorMessage('Apex Coder: AI Model is not initialized. Please check configuration.');
+								currentPanel?.webview.postMessage({ command: 'error', payload: 'AI Model not initialized. Check configuration.' });
+								return;
+							}
+						}
+						if (!message.payload || !message.payload.text) {
+							vscode.window.showWarningMessage('Apex Coder: Received empty message from webview.');
+							return;
+						}
+						try {
+							const model = getLanguageModel();
+							const userMessage = message.payload.text;
+							const streamId = message.payload.id || Date.now().toString();
+							// Define the tools object with both tools (now inside activate scope)
+							const toolsToPass = {
+								openFile: openFileTool,
+								readFile: readFileTool
+							};
+							console.log(`[Apex Coder] Sending to AI: ${userMessage}`);
+							console.log('[Apex Coder] Tools being passed to streamText:', Object.keys(toolsToPass));
 
-	 		switch (message.command) {
-	 			case 'alert':
-	 				vscode.window.showErrorMessage(message.text);
-	 				return;
+							// Call streamText with tools and onChunk handler
+							const result = await streamText({
+								model: model,
+								prompt: userMessage,
+								tools: toolsToPass, // Pass both tools
+								async onChunk({ chunk }) {
+									// console.log('[Apex Coder] Received chunk:', chunk);
+									switch (chunk.type) {
+										case 'text-delta':
+											currentPanel?.webview.postMessage({
+												command: 'aiResponseChunk',
+												payload: { id: streamId, text: chunk.textDelta }
+											});
+											break;
+										case 'reasoning':
+											console.log(`[Apex Coder] Received chunk type: ${chunk.type}`, chunk.textDelta);
+											currentPanel?.webview.postMessage({
+												command: 'aiThinkingStep',
+												payload: { id: streamId, text: chunk.textDelta }
+											});
+											break;
+										case 'tool-call':
+											console.log(`[Apex Coder] Received chunk type: ${chunk.type}`, chunk);
+											currentPanel?.webview.postMessage({
+												command: 'aiThinkingStep',
+												payload: { id: streamId, text: `Calling tool: ${chunk.toolName}...` }
+											});
+											break;
+										case 'source':
+										case 'tool-call-streaming-start':
+										case 'tool-call-delta':
+											console.log(`[Apex Coder] Received chunk type: ${chunk.type}`, chunk);
+											break;
+									}
+								}
+							});
 
-	 			case 'checkStatus': // Renamed to getConfigStatus for clarity
-	 			case 'getConfigStatus':
-	 				console.log('[Apex Coder] Handling getConfigStatus command...');
-	 				const config = vscode.workspace.getConfiguration('apexCoder.ai');
-	 				const provider = config.get<string>('provider');
-	 				const secretKey = provider ? `apexCoder.apiKey.${provider.toLowerCase()}` : undefined;
-	 				const apiKeySet = secretKey ? !!(await context.secrets.get(secretKey)) : false;
-	 				// Also try to initialize model if config seems complete
-	 				let modelCheckSuccess = false;
-	 				if (provider && (apiKeySet || provider.toLowerCase() === 'ollama')) {
-	 					modelCheckSuccess = await tryInitializeModel(); // Attempt init if not already done
-	 				} else {
-	 					isModelInitialized = false; // Ensure state is false if config incomplete
-	 					currentAiConfig = null;
-	 				}
-	 				currentPanel?.webview.postMessage({
-	 					command: 'configStatus', // Send back configStatus
-	 					payload: {
-	 						providerSet: !!provider,
-	 						apiKeySet: apiKeySet || provider?.toLowerCase() === 'ollama',
-	 						isModelInitialized: modelCheckSuccess, // Reflects the latest attempt
-	 						provider: provider,
-	 						modelId: config.get<string>('modelId')
-	 					}
-	 				});
-	 				console.log('[Apex Coder] Sent configStatus to webview.');
-	 				return;
+							// Await the streamText promise to complete the full cycle, including tool execution and final response generation
+							const finalResult = await result;
 
-	 			case 'saveConfiguration':
-	 				console.log('[Apex Coder] Handling saveConfiguration command...');
-	 				const { provider: newProvider, modelId: newModelId, apiKey: newApiKey, baseUrl: newBaseUrl } = message.payload;
+							// Log the final result object after the stream is fully processed
+							try {
+								console.log('[Apex Coder] streamText final result properties:', {
+									finishReason: finalResult.finishReason,
+									usage: finalResult.usage,
+									// toolCalls: finalResult.toolCalls, // Optional: Log if needed
+									// toolResults: finalResult.toolResults // Optional: Log if needed
+								});
+							} catch (logError) {
+								console.error('[Apex Coder] Error logging final streamText result:', logError);
+							}
 
-	 				if (!newProvider) {
-	 					vscode.window.showErrorMessage('Provider name is required.');
-	 					currentPanel?.webview.postMessage({ command: 'configError', payload: 'Provider name is required.' });
-	 					return;
-	 				}
-	 				if (!newApiKey && newProvider.toLowerCase() !== 'ollama') {
-	 					vscode.window.showErrorMessage(`API Key is required for ${newProvider}.`);
-	 					currentPanel?.webview.postMessage({ command: 'configError', payload: `API Key is required for ${newProvider}.` });
-	 					return;
-	 				}
+							console.log(`[Apex Coder] Finished stream ${streamId}. Sending aiResponseComplete.`);
+							currentPanel?.webview.postMessage({ command: 'aiResponseComplete', payload: { id: streamId } });
 
-	 				try {
-	 					// Update settings (Global scope)
-	 					const config = vscode.workspace.getConfiguration('apexCoder.ai');
-	 					await config.update('provider', newProvider, vscode.ConfigurationTarget.Global);
-	 					await config.update('modelId', newModelId || undefined, vscode.ConfigurationTarget.Global); // Store undefined if empty
-	 					await config.update('baseUrl', newBaseUrl || undefined, vscode.ConfigurationTarget.Global); // Store undefined if empty
-
-	 					// Store API key
-	 					if (newApiKey) {
-	 						const secretKey = `apexCoder.apiKey.${newProvider.toLowerCase()}`;
-	 						await context.secrets.store(secretKey, newApiKey);
-	 						console.log(`[Apex Coder] API Key stored for provider: ${newProvider}`);
-	 					}
-
-	 					// Attempt to initialize the model with new config
-	 					const initSuccess = await tryInitializeModel(true); // Force re-initialization
-
-	 					vscode.window.showInformationMessage(`Configuration for ${newProvider} saved successfully.`);
-	 					currentPanel?.webview.postMessage({
-	 						command: 'configSaved',
-	 						payload: {
-	 							providerSet: true,
-	 							apiKeySet: !!newApiKey || newProvider.toLowerCase() === 'ollama',
-	 							isModelInitialized: initSuccess,
-	 							provider: newProvider,
-	 							modelId: newModelId
-	 						}
-	 					});
-	 					console.log('[Apex Coder] Configuration saved and model re-initialization attempted.');
-
-	 				} catch (error) {
-	 					console.error('[Apex Coder] Error saving configuration:', error);
-	 					vscode.window.showErrorMessage(`Failed to save configuration: ${error}`);
-	 					currentPanel?.webview.postMessage({ command: 'configError', payload: `Failed to save configuration: ${error}` });
-	 					isModelInitialized = false; // Ensure state reflects failure
-	 					currentAiConfig = null;
-	 				}
-	 				return;
-
-	 			case 'sendMessage':
-	 				console.log('[Apex Coder] Handling sendMessage command...');
-	 				// Ensure model is initialized before sending
-	 				if (!isModelInitialized) {
-	 					// Try to initialize again, maybe config was just set
-	 					const initSuccess = await tryInitializeModel();
-	 					if (!initSuccess) {
-	 						vscode.window.showErrorMessage('Apex Coder: AI Model is not initialized. Please check configuration.');
-	 						currentPanel?.webview.postMessage({ command: 'error', payload: 'AI Model not initialized. Check configuration.' });
-	 						return;
-	 					}
-	 				}
-	 				if (!message.payload || !message.payload.text) {
-	 					vscode.window.showWarningMessage('Apex Coder: Received empty message from webview.');
-	 					return;
-	 				}
-
-	 				try {
-	 					const model = getLanguageModel(); // Should be initialized now
-	 					const userMessage = message.payload.text;
-	 					const streamId = message.payload.id || Date.now().toString();
-
-	 					console.log(`[Apex Coder] Sending to AI: ${userMessage}`);
-	 					// Removed the initial generic "Thinking..." message post
-
-	 					const result = await streamText({
-	 						model: model,
-	 						prompt: userMessage,
-	 						tools: { // Add the tools option
-	 							openFile: openFileTool // Pass the defined tool
-	 						},
-	 						async onChunk({ chunk }) {
-	 							// console.log('[Apex Coder] Received chunk:', chunk); // Optional: Log every chunk
-	 							switch (chunk.type) {
-	 								case 'text-delta':
-	 									currentPanel?.webview.postMessage({
-	 										command: 'aiResponseChunk',
-	 										payload: { id: streamId, text: chunk.textDelta }
-	 									});
-	 									break;
-	 								case 'tool-call':
-	 								case 'reasoning':
-	 								case 'source':
-	 								case 'tool-call-streaming-start':
-	 								case 'tool-call-delta':
-	 								    console.log(`[Apex Coder] Received chunk type: ${chunk.type}`, chunk);
-	 									// Send thinking step for non-text chunks
-	 									let thinkingText = `Processing step: ${chunk.type}...`;
-	 									if (chunk.type === 'tool-call') {
-	 										thinkingText = `Calling tool: ${chunk.toolName}...`;
-	 									}
-	 									currentPanel?.webview.postMessage({
-	 										command: 'aiThinkingStep',
-	 										payload: { id: streamId, text: thinkingText }
-	 									});
-	 									break;
-	 							}
-	 						}
-	 					});
-
-	 					// Consume the stream fully (important for streamText)
-	 					// We don't need the final text here as chunks are sent via onChunk
-	 					for await (const part of result.fullStream) { }
-
-	 					console.log(`[Apex Coder] Finished stream ${streamId}. Sending aiResponseComplete.`);
-	 					currentPanel?.webview.postMessage({ command: 'aiResponseComplete', payload: { id: streamId } });
-
-	 				} catch (error) {
-	 					console.error('[Apex Coder] Error processing AI request:', error);
-	 					vscode.window.showErrorMessage(`Apex Coder: AI Request Failed - ${error}`);
-	 					currentPanel?.webview.postMessage({ command: 'error', payload: `AI Request Failed: ${error}` });
-	 				}
-	 				return;
-	 		}
-	 	},
-	 	undefined,
-	 	context.subscriptions
-	 );
-	       console.log('[Apex Coder] Added message listener.');
-
+						} catch (error) {
+							console.error('[Apex Coder] Error processing AI request:', error);
+							vscode.window.showErrorMessage(`Apex Coder: AI Request Failed - ${error}`);
+							currentPanel?.webview.postMessage({ command: 'error', payload: `AI Request Failed: ${error}` });
+						}
+						return;
+				}
+			},
+			undefined,
+			context.subscriptions
+		);
+		console.log('[Apex Coder] Added message listener.');
 
 		// Reset currentPanel when the panel is closed
 		currentPanel.onDidDispose(
@@ -345,32 +358,24 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 	// Register command to set the API key
 	const setApiKeyCommand = vscode.commands.registerCommand('apex-coder.setApiKey', async () => {
 		console.log('[Apex Coder] Set API Key command triggered.');
-
-		// 1. Prompt for AI Provider
 		const provider = await vscode.window.showInputBox({
 			prompt: 'Enter AI Provider name (e.g., google, openai, anthropic, ollama)',
 			placeHolder: 'google',
-			ignoreFocusOut: true, // Keep input box open even if focus moves
+			ignoreFocusOut: true,
 		});
-
 		if (!provider) {
 			vscode.window.showWarningMessage('API Key setup cancelled: Provider name not entered.');
 			return;
 		}
-
-		// 2. Prompt for API Key
 		const apiKey = await vscode.window.showInputBox({
 			prompt: `Enter API Key for ${provider}`,
-			password: true, // Mask the input
+			password: true,
 			ignoreFocusOut: true,
 		});
-
 		if (!apiKey) {
 			vscode.window.showWarningMessage(`API Key setup cancelled: API Key for ${provider} not entered.`);
 			return;
 		}
-
-		// 3. Store the API Key securely
 		const secretKey = `apexCoder.apiKey.${provider.toLowerCase()}`;
 		try {
 			await context.secrets.store(secretKey, apiKey);
@@ -386,43 +391,35 @@ export async function activate(context: vscode.ExtensionContext) { // Make activ
 
 	console.log('[Apex Coder] Commands registered. Activation finished.');
 
-	// Automatically show the panel on startup
 	vscode.commands.executeCommand('apex-coder.showPanel');
 	console.log('[Apex Coder] Automatically triggered showPanel command on startup.');
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {
     console.log('[Apex Coder] Deactivating...');
-    // Cleanup resources if needed
 }
 
 function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 	const nonce = getNonce();
-
 	if (IS_DEVELOPMENT) {
 		console.log('[Apex Coder] Generating webview content for DEVELOPMENT (Vite dev server)...');
-		// Allow connecting to Vite server (including HMR WebSocket)
 		const cspSource = webview.cspSource;
-        const devServerSource = DEV_SERVER_URL.replace(/^http:/, 'http:').replace(/^https:/, 'https:'); // Allow http/https
-        const wsSource = DEV_SERVER_URL.replace(/^http/, 'ws'); // For HMR WebSocket
-
+        const devServerSource = DEV_SERVER_URL.replace(/^http:/, 'http:').replace(/^https:/, 'https:');
+        const wsSource = DEV_SERVER_URL.replace(/^http/, 'ws');
 		return `<!DOCTYPE html>
 		<html lang="en">
 		<head>
 			<meta charset="UTF-8">
-			<!-- Allow connection to Vite server and inline styles/scripts for HMR -->
 			<meta http-equiv="Content-Security-Policy" content="
 				default-src 'none';
 				connect-src ${cspSource} ${devServerSource} ${wsSource};
 				img-src ${cspSource} ${devServerSource} data:;
 				script-src 'nonce-${nonce}' ${devServerSource} 'unsafe-eval';
-				style-src ${cspSource} ${devServerSource} 'unsafe-inline'; /* Allow inline styles for dev */
+				style-src ${cspSource} ${devServerSource} 'unsafe-inline';
 				font-src ${cspSource} ${devServerSource};
 			">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<title>Apex Coder (Dev)</title>
-			<!-- Inject Vite client and entry point -->
 			<script type="module" nonce="${nonce}" src="${DEV_SERVER_URL}/@vite/client"></script>
 			<script type="module" nonce="${nonce}" src="${DEV_SERVER_URL}/src/main.ts"></script>
 		</head>
@@ -430,45 +427,31 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
 			<div id="app"></div>
 		</body>
 		</html>`;
-
 	} else {
 		console.log('[Apex Coder] Generating webview content for PRODUCTION (dist build)...');
 		const buildPath = vscode.Uri.joinPath(extensionUri, 'webview-ui', 'dist');
 		const indexPath = vscode.Uri.joinPath(buildPath, 'index.html');
-
 		if (!fs.existsSync(indexPath.fsPath)) {
 			console.error(`[Apex Coder] Error: index.html not found at ${indexPath.fsPath}. Did you run 'pnpm --filter webview-ui build'?`);
 			return `<!DOCTYPE html><html><body><h1>Error</h1><p>Webview UI not built. Please run 'pnpm --filter webview-ui build' in the project root.</p></body></html>`;
 		}
-
 		let html = fs.readFileSync(indexPath.fsPath, 'utf8');
-
-		// Replace asset paths with webview URIs
 		html = html.replace(/(href|src)="(\/assets\/[^"]+)"/g, (match, p1Attribute, p2Path) => {
 			const assetPath = p2Path.substring(1);
 			const assetUri = webview.asWebviewUri(vscode.Uri.joinPath(buildPath, assetPath));
 			console.log(`[Apex Coder] Replacing asset path: ${p2Path} -> ${assetUri}`);
 			return `${p1Attribute}="${assetUri}"`;
 		});
-
-		// Add production CSP
 		html = html.replace(
 			'<head>',
 			`<head>
 			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; connect-src ${webview.cspSource}; font-src ${webview.cspSource};">`
-			// No <base> tag needed if paths are absolute webview URIs
 		);
-
-		// Add nonce to script tags
 		html = html.replace(/<script /g, `<script nonce="${nonce}" `);
-
 		console.log('[Apex Coder] Production webview content generated successfully.');
 		return html;
 	}
 }
-
-
-// Removed erroneous lines from previous diff
 
 function getNonce() {
     let text = '';

@@ -44,7 +44,10 @@
           "description": "The specific model ID to use for the selected provider. Saved in user/workspace settings."
         },
         "apexCoder.ai.baseUrl": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null,
           "scope": "machine-overridable",
           "description": "Optional base URL for providers like Ollama or self-hosted models. Saved in user/workspace settings."
@@ -81,6 +84,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.6",
+    "@ai-sdk/deepseek": "^0.2.6",
     "@ai-sdk/google": "^1.2.8",
     "@ai-sdk/openai": "^1.3.7",
     "ai": "^4.3.2",
