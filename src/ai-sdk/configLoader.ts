@@ -1,89 +1,105 @@
-import { LanguageModel } from 'ai'; // Removed createLanguageModel, ProviderMetadata
-// Removed logger import, using the one defined below
-import * as vscode from 'vscode'; // Needed for potential logging or config access
+import type { LanguageModel } from 'ai';
+import { logger } from '../utils/logger'; // Import from separate file
 
-// Define the expected configuration structure from the extension host
-// Matches the structure used in extension.ts for reading settings/secrets
+// Define the expected configuration structure
 export interface AiConfig {
     provider: string;
-    modelId?: string; // Optional, specific model ID (e.g., 'gemini-1.5-flash', 'gemma', 'gpt-4o')
-    apiKey?: string; // API key if required by the provider
-    baseUrl?: string; // Base URL for self-hosted models like Ollama
-    location?: string; // Location for cloud providers like Vertex AI
-    // Add other potential config fields as needed (e.g., project ID for Vertex)
+    modelId?: string;
+    apiKey?: string;
+    baseUrl?: string;
+    location?: string; // For Vertex AI
+    // Add other potential config fields
 }
 
-// Store the initialized model instance
+// Define default model IDs as constants
+const DEFAULT_MODELS: Record<string, string> = {
+    googleai: 'gemini-1.5-flash',
+    openai: 'gpt-4o',
+    anthropic: 'claude-3-5-sonnet',
+    ollama: 'llama3',
+    deepseek: 'deepseek-chat',
+    // vertexai: 'gemini-1.5-flash',
+};
+
+// Store the initialized model instance and config
 let languageModelInstance: LanguageModel | null = null;
 let currentConfig: AiConfig | null = null;
 
+// Type for the provider creation functions (adjust as needed based on actual provider types)
+// Type for the provider creation functions (adjust as needed based on actual provider types)
+// TODO: Find the correct type for LanguageModelProvider or use a more specific union type
+type ProviderCreator = (options?: { apiKey?: string; baseURL?: string; baseUrl?: string; location?: string; /* other options */ }) => any;
+
+/**
+ * Loads the appropriate provider creation function dynamically.
+ * @param providerName Lowercase provider name.
+ * @returns The provider creation function.
+ */
+async function loadProviderCreator(providerName: string): Promise<ProviderCreator> {
+    switch (providerName) {
+        case 'googleai':
+            return (await import('@ai-sdk/google')).createGoogleGenerativeAI;
+        case 'openai':
+            return (await import('@ai-sdk/openai')).createOpenAI;
+        case 'anthropic':
+            return (await import('@ai-sdk/anthropic')).createAnthropic;
+        case 'ollama':
+            // Ollama provider might have different signature, adjust type/call if needed
+            return (await import('ollama-ai-provider')).createOllama as ProviderCreator;
+        case 'deepseek':
+            return (await import('@ai-sdk/deepseek')).createDeepSeek;
+        // case 'vertexai':
+        //     return (await import('@ai-sdk/google-vertex')).createVertex;
+        default:
+            throw new Error(`Unsupported AI provider: ${providerName}`);
+    }
+}
+
 /**
  * Initializes the Vercel AI SDK LanguageModel dynamically based on the provided configuration.
- * This should be called when the extension activates or when the configuration changes.
  * @param config The AI configuration object.
  */
 export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
-    logger.info(`Initializing AI SDK for provider: ${config.provider} with model: ${config.modelId || 'default'}`);
-    currentConfig = config; // Store current config
+    const providerLower = config.provider.toLowerCase();
+    const modelIdentifier = config.modelId || DEFAULT_MODELS[providerLower] || '';
+    logger.info(`Initializing AI SDK for provider: ${providerLower} with model: ${modelIdentifier}`);
+
+    if (!modelIdentifier) {
+        logger.error(`No model ID specified and no default found for provider: ${providerLower}`);
+        throw new Error(`No model ID specified and no default found for provider: ${providerLower}`);
+    }
+
+    currentConfig = config; // Store config before attempting initialization
 
     try {
-        let providerInstance: any; // To hold the specific provider instance (e.g., google, openai)
-        let modelIdentifier: string; // The ID string for the model
+        const createProvider = await loadProviderCreator(providerLower);
 
-        switch (config.provider.toLowerCase()) {
-            case 'googleai': {
-                const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
-                providerInstance = createGoogleGenerativeAI({ apiKey: config.apiKey }); // Uses env var if apiKey is undefined
-                modelIdentifier = config.modelId || 'gemini-1.5-flash'; // Default model
-                break;
-            }
-            case 'openai': {
-                const { createOpenAI } = await import('@ai-sdk/openai');
-                providerInstance = createOpenAI({ apiKey: config.apiKey }); // Uses env var if apiKey is undefined
-                modelIdentifier = config.modelId || 'gpt-4o'; // Default model
-                break;
-            }
-            case 'anthropic': {
-                const { createAnthropic } = await import('@ai-sdk/anthropic');
-                providerInstance = createAnthropic({ apiKey: config.apiKey }); // Uses env var if apiKey is undefined
-                modelIdentifier = config.modelId || 'claude-3-5-sonnet'; // Default model
-                break;
-            }
-            case 'ollama': {
-                const { createOllama } = await import('ollama-ai-provider');
-                providerInstance = createOllama({ baseURL: config.baseUrl }); // Uses default localhost if baseUrl undefined
-                modelIdentifier = config.modelId || 'llama3'; // Default model
-                break;
-               }
-               case 'deepseek': {
-                const { createDeepSeek } = await import('@ai-sdk/deepseek');
-                providerInstance = createDeepSeek({ apiKey: config.apiKey }); // Uses env var if apiKey is undefined
-                modelIdentifier = config.modelId || 'deepseek-chat'; // Default model
-                break;
-               }
-               // Add cases for other providers like vertexai, mistral, cohere etc.
-               // case 'vertexai': {
-               //     const { createVertex } = await import('@ai-sdk/google-vertex'); // Check actual package name
-               //     providerInstance = createVertex({ location: config.location || 'us-central1' });
-               //     modelIdentifier = config.modelId || 'gemini-1.5-flash';
-               //     break;
-            // }
-            default:
-                logger.error(`Unsupported AI provider in configLoader: ${config.provider}`);
-                throw new Error(`Unsupported AI provider: ${config.provider}`);
-        }
+        // Prepare options, filtering out undefined values
+        const providerOptions: Record<string, string | undefined> = {
+            apiKey: config.apiKey,
+            // Handle potential naming difference for Ollama's baseURL
+            [providerLower === 'ollama' ? 'baseURL' : 'baseUrl']: config.baseUrl,
+            location: config.location,
+        };
+        Object.keys(providerOptions).forEach(key => providerOptions[key] === undefined && delete providerOptions[key]);
+
+        const providerInstance = createProvider(providerOptions);
 
         // Get the specific model instance from the provider
-        // The createLanguageModel function wraps the provider-specific model
         languageModelInstance = providerInstance(modelIdentifier);
 
-        logger.info(`AI SDK Model initialized successfully: ${providerInstance.provider}/${modelIdentifier}`);
+        // Attempt a simple check if possible (optional, might require specific provider knowledge)
+        // e.g., if (typeof languageModelInstance?.generate !== 'function') throw new Error('Invalid model instance');
 
-    } catch (error) {
-        logger.error(`Failed to initialize AI SDK Model for provider ${config.provider}:`, error);
+        logger.info(`AI SDK Model initialized successfully: ${providerLower}/${modelIdentifier}`);
+
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to initialize AI SDK Model for provider ${providerLower}:`, errorMessage, error);
         languageModelInstance = null; // Reset instance on failure
         currentConfig = null;
-        throw new Error(`AI SDK Model initialization failed: ${error}`);
+        // Re-throw a more specific error or the original one
+        throw new Error(`AI SDK Model initialization failed for ${providerLower}: ${errorMessage}`);
     }
 }
 
@@ -105,19 +121,12 @@ export function getCurrentAiConfig(): AiConfig | null {
     return currentConfig;
 }
 
-// Simple logger implementation (replace with a more robust one if needed)
-// Create a separate logger.ts file if preferred
-namespace logger {
-    export function info(message: string, ...optionalParams: any[]): void {
-        console.log(`[INFO] ${message}`, ...optionalParams);
-        // Potentially write to VS Code OutputChannel
-    }
-    export function warn(message: string, ...optionalParams: any[]): void {
-        console.warn(`[WARN] ${message}`, ...optionalParams);
-        vscode.window.showWarningMessage(message);
-    }
-    export function error(message: string, ...optionalParams: any[]): void {
-        console.error(`[ERROR] ${message}`, ...optionalParams);
-        vscode.window.showErrorMessage(message);
-    }
+/**
+ * Resets the initialized model and configuration.
+ * Useful for testing or re-initialization.
+ */
+export function resetAiSdkModel(): void {
+    logger.info('Resetting AI SDK Model and configuration.');
+    languageModelInstance = null;
+    currentConfig = null;
 }
