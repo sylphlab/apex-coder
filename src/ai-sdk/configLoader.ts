@@ -13,11 +13,14 @@ export interface AiConfig {
 
 // Define default model IDs as constants
 const DEFAULT_MODELS: Record<string, string> = {
+    // Core providers
     googleai: 'gemini-1.5-flash',
     openai: 'gpt-4o',
     anthropic: 'claude-3-5-sonnet',
     ollama: 'llama3',
     deepseek: 'deepseek-chat',
+    
+    // Cloud providers
     vertexai: 'gemini-1.5-flash',
     cohere: 'command',
     mistral: 'mistral-large-latest',
@@ -27,7 +30,11 @@ const DEFAULT_MODELS: Record<string, string> = {
     together: 'togethercomputer/llama-3-70b-instruct',
     huggingface: 'mistralai/Mistral-7B-Instruct-v0.2',
     anyscale: 'meta-llama/Llama-3-70b-chat-hf',
+    deepinfra: 'meta-llama/Meta-Llama-3-70B-Instruct',
+    
+    // Enterprise providers
     aws: 'anthropic.claude-3-sonnet-20240229-v1:0',
+    bedrock: 'anthropic.claude-3-sonnet-20240229-v1:0',
     azure: 'gpt-4',
     groq: 'llama3-70b-8192',
 };
@@ -48,8 +55,8 @@ type ProviderCreator = (options?: { apiKey?: string; baseURL?: string; baseUrl?:
  */
 async function loadProviderCreator(providerName: string): Promise<ProviderCreator> {
     try {
+        // Core providers - these are installed by default
         switch (providerName) {
-            // Core providers
             case 'googleai':
                 return (await import('@ai-sdk/google')).createGoogleGenerativeAI;
             case 'openai':
@@ -60,43 +67,55 @@ async function loadProviderCreator(providerName: string): Promise<ProviderCreato
                 return (await import('ollama-ai-provider')).createOllama as ProviderCreator;
             case 'deepseek':
                 return (await import('@ai-sdk/deepseek')).createDeepSeek;
-                
-            // Cloud providers
-            case 'vertexai':
-                return (await import('@ai-sdk/google-vertex')).createVertex;
-            case 'cohere':
-                return (await import('@ai-sdk/cohere')).createCohere;
-            case 'mistral':
-                return (await import('@ai-sdk/mistral')).createMistral;
-            case 'perplexity':
-                return (await import('@ai-sdk/perplexity')).createPerplexity;
-            case 'replicate':
-                return (await import('@ai-sdk/replicate')).createReplicate;
-            case 'fireworks':
-                return (await import('@ai-sdk/fireworks')).createFireworks;
-            case 'together':
-                return (await import('@ai-sdk/together')).createTogether;
-            case 'huggingface':
-                return (await import('@ai-sdk/huggingface')).createHuggingFace;
-            case 'anyscale':
-                return (await import('@ai-sdk/anyscale')).createAnyscale;
-                
-            // Enterprise providers
-            case 'aws':
-                return (await import('@ai-sdk/aws')).createAWS;
-            case 'azure':
-                return (await import('@ai-sdk/azure')).createAzure;
-            case 'groq':
-                return (await import('@ai-sdk/groq')).createGroq;
-                
-            default:
-                throw new Error(`Unsupported AI provider: ${providerName}`);
         }
+        
+        // Additional providers - these require installation via install-providers.js
+        // We use dynamic imports with try/catch to handle missing packages gracefully
+        try {
+            switch (providerName) {
+                // Cloud providers
+                case 'vertexai':
+                    return (await import('@ai-sdk/google-vertex')).createVertex;
+                case 'cohere':
+                    return (await import('@ai-sdk/cohere')).createCohere;
+                case 'mistral':
+                    return (await import('@ai-sdk/mistral')).createMistral;
+                case 'perplexity':
+                    return (await import('@ai-sdk/perplexity')).createPerplexity;
+                case 'replicate':
+                    return (await import('@ai-sdk/replicate')).createReplicate;
+                case 'fireworks':
+                    return (await import('@ai-sdk/fireworks')).createFireworks;
+                case 'together':
+                    return (await import('@ai-sdk/togetherai')).createTogether;
+                case 'huggingface':
+                    return (await import('@ai-sdk/huggingface')).createHuggingFace;
+                case 'anyscale':
+                    return (await import('@ai-sdk/anyscale')).createAnyscale;
+                case 'deepinfra':
+                    return (await import('@ai-sdk/deepinfra')).createDeepInfra;
+                    
+                // Enterprise providers
+                case 'bedrock':
+                case 'aws':
+                    return (await import('@ai-sdk/amazon-bedrock')).createAmazonBedrock;
+                case 'azure':
+                    return (await import('@ai-sdk/azure')).createAzure;
+                case 'groq':
+                    return (await import('@ai-sdk/groq')).createGroq;
+            }
+        } catch (importError) {
+            // Handle missing package error
+            throw new Error(`Provider package for '${providerName}' is not installed. Please run 'node install-providers.js --providers=${providerName}' to install it.`);
+        }
+        
+        // If we get here, the provider is not supported
+        throw new Error(`Unsupported AI provider: ${providerName}`);
     } catch (error) {
-        // Provide a more helpful error message if the provider package is not installed
+        // Provide a more helpful error message
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (errorMessage.includes("Cannot find module") || errorMessage.includes("Failed to resolve")) {
-            throw new Error(`Provider package for '${providerName}' is not installed. Please install the package '@ai-sdk/${providerName}' or equivalent.`);
+            throw new Error(`Provider package for '${providerName}' is not installed. Please run 'node install-providers.js --providers=${providerName}' to install it.`);
         }
         throw error;
     }

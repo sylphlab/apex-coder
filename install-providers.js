@@ -28,15 +28,26 @@ const ALL_PROVIDERS = [
   '@ai-sdk/perplexity',
   '@ai-sdk/replicate',
   '@ai-sdk/fireworks',
-  '@ai-sdk/together',
+  '@ai-sdk/togetherai',
+  '@ai-sdk/deepinfra',
   '@ai-sdk/huggingface',
   '@ai-sdk/anyscale',
   
   // Enterprise providers
-  '@ai-sdk/aws',
+  '@ai-sdk/amazon-bedrock',
   '@ai-sdk/azure',
   '@ai-sdk/groq',
 ];
+
+// Define provider aliases for command line arguments
+const PROVIDER_ALIASES = {
+  'together': '@ai-sdk/togetherai',
+  'aws': '@ai-sdk/amazon-bedrock',
+  'bedrock': '@ai-sdk/amazon-bedrock',
+  'vertex': '@ai-sdk/google-vertex',
+  'vertexai': '@ai-sdk/google-vertex',
+  'deepinfra': '@ai-sdk/deepinfra',
+};
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -47,13 +58,17 @@ const providersArg = args.find(arg => arg.startsWith('--providers='));
 if (providersArg) {
   const requestedProviders = providersArg.split('=')[1].split(',');
   selectedProviders = requestedProviders.map(p => {
-    // Add @ai-sdk/ prefix if not already present and not ollama
-    if (!p.startsWith('@ai-sdk/') && p !== 'ollama') {
-      return `@ai-sdk/${p}`;
+    // Check if it's a known alias
+    if (PROVIDER_ALIASES[p]) {
+      return PROVIDER_ALIASES[p];
     }
     // Special case for ollama
     if (p === 'ollama') {
       return 'ollama-ai-provider';
+    }
+    // Add @ai-sdk/ prefix if not already present
+    if (!p.startsWith('@ai-sdk/')) {
+      return `@ai-sdk/${p}`;
     }
     return p;
   });
