@@ -14,7 +14,6 @@
             },
             "group": {
                 "kind": "build"
-                // "isDefault": true // Remove default from watch task
             }
         },
         {
@@ -60,22 +59,63 @@
 			],
 			"problemMatcher": []
 		},
-		{ // Add new task for one-time compile
-			"label": "pnpm: compile", // Task label
-			"type": "shell", // Use shell type to run pnpm
-			"command": "pnpm run compile", // The command to run
+		{
+			"label": "pnpm: compile",
+			"type": "shell",
+			"command": "pnpm run compile",
 			"problemMatcher": [
-				"$tsc", // Use standard tsc problem matcher
-		              "$eslint-compact" // Use standard eslint matcher
+				"$tsc",
+		        "$eslint-compact"
 			],
 			"group": {
 				"kind": "build",
-				"isDefault": true // Set this as the default build task for F5
+				"isDefault": true
 			},
-		          "presentation": {
-		              "reveal": "silent", // Don't necessarily show the terminal
-		              "clear": true
-		          }
+		    "presentation": {
+		        "reveal": "silent",
+		        "clear": true
+		    }
+		},
+		{
+			"label": "Run: Show Panel",
+			"type": "shell",
+			"command": "${command:apex-coder.showPanel}",
+			"presentation": {
+				"reveal": "never",
+				"clear": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Vite Dev Server",
+			"type": "shell",
+			"command": "pnpm --filter webview-ui dev",
+			"isBackground": true,
+			"problemMatcher": {
+				"pattern": {
+					"regexp": ".",
+					"file": 1,
+					"location": 2,
+					"message": 3
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": ".",
+					"endsPattern": "ready in \\d+ms"
+				}
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "Start Full Dev Environment",
+			"dependsOn": [
+				"pnpm: compile",
+				"Start Vite Dev Server"
+			],
+			"problemMatcher": []
 		}
 	]
 }

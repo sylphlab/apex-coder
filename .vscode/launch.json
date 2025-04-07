@@ -15,29 +15,49 @@
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}" // Runs the default build task (usually tsc compile)
+			"preLaunchTask": "${defaultBuildTask}"
+		},
+		{
+			"name": "Run Extension with Panel",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "${defaultBuildTask}"
 		},
 		{
 			"name": "Run Vite Dev Server",
-			"type": "node-terminal", // Use node-terminal to run in integrated terminal
+			"type": "node-terminal",
 			"request": "launch",
 			"command": "pnpm --filter webview-ui dev",
-			"cwd": "${workspaceFolder}", // Run in the root workspace folder
+			"cwd": "${workspaceFolder}",
 			"serverReadyAction": {
-				"pattern": "Local:\\s+(https?://localhost:\\d+)", // Wait for Vite server ready message
+				"pattern": "Local:\\s+(https?://localhost:\\d+)",
 				"uriFormat": "%s",
-				"action": "debugWithChrome" // Optional: Open the dev server URL in Chrome debugger
+				"action": "debugWithChrome"
 			}
 		}
 	],
 	"compounds": [
 		{
-			"name": "Extension + Vite Dev", // Name for the compound configuration
+			"name": "Extension + Vite Dev",
 			"configurations": [
 				"Run Extension",
 				"Run Vite Dev Server"
 			],
-			"stopAll": true // Stop both processes when debugging stops
+			"stopAll": true
+		},
+		{
+			"name": "Full Development Environment",
+			"configurations": [
+				"Run Extension with Panel",
+				"Run Vite Dev Server"
+			],
+			"stopAll": true
 		}
 	]
 }
