@@ -1,8 +1,8 @@
-<!-- Version: 1.30 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.31 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Progress: Apex Coder
 
-**Overall Status:** Foundational structure complete. Vercel AI SDK integrated. UI refactored to use UnoCSS. Auto-panel display implemented. **UnoCSS styling issues resolved.** Webview-driven setup flow implemented. **Fixed development workflow and UI issues.**
+**Overall Status:** Foundational structure complete. Vercel AI SDK integrated. UI refactored to use UnoCSS. Auto-panel display implemented. **UnoCSS styling issues resolved.** Webview-driven setup flow implemented. **Fixed development workflow and UI issues.** **Provider-first architecture implemented.**
 
 **Completed Milestones:**
 - Initial requirements gathering and planning.
@@ -33,8 +33,14 @@
     - Applied Nordic-inspired styles to `webview-ui/src/views/SetupView.vue`.
     - Applied Nordic-inspired styles to `webview-ui/src/views/ChatView.vue`.
     - **Fix:** Corrected Vue template syntax errors in `ChatView.vue` caused by `apply_diff` comments.
+- **Provider-First Architecture Implemented:**
+    - Created base provider interface (`BaseAIProvider`) and implementation classes for each provider.
+    - Implemented provider-specific files for Google AI, OpenAI, Anthropic, Ollama, Mistral, Azure, Cohere, and DeepSeek.
+    - Updated `configLoader.ts` to use the new provider architecture.
+    - Modified `AiConfig` interface to use a credentials object for provider-specific settings.
+    - Updated related files (`extension.ts`, `panelManager.ts`, tests) to work with the new architecture.
 
-**Current Phase:** **UI Overhaul** - Theme integration refined, pending commit.
+**Current Phase:** **Provider Architecture** - Completed provider-first design with separate files for each provider.
 
 **What Works:**
 - Basic Extension structure.
@@ -45,6 +51,7 @@
 - Configuration settings are registered correctly.
 - UnoCSS is integrated.
 - Extension activates on startup and attempts to show panel.
+- Provider-first architecture with modular design.
 
 **What's Left (High Level):**
 - **Implemented:** Added functional logic to `apex-coder.setApiKey` command.
@@ -72,10 +79,13 @@
   - Fixed hot reload functionality by setting `IS_DEVELOPMENT = false` in `contentProvider.ts`
   - Suppressed annoying "API Key for provider 'deepseek' not found in secrets" warning
   - Fixed welcome page black screen issue
+- **Implemented Provider-First Architecture:**
+  - Created base provider interface and abstract class
+  - Implemented provider-specific files for 8 different providers
+  - Updated configuration handling to use provider-specific credentials
+  - Modified related files to work with the new architecture
 - **Current Task:** Refine secure API key handling (e.g., prompt user on activation if key missing).
-- Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).
-- Add support for more Vercel AI SDK providers in `configLoader.ts`.
 - Testing, optimization, packaging.
 
 **Known Issues/Blockers:**

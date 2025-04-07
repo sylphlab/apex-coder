@@ -1,6 +1,5 @@
 import { logger } from '../utils/logger';
-import { PROVIDER_INFO, ProviderInfo, AiConfig } from './configLoader';
-import axios from 'axios';
+import { AiConfig, getModelsForProvider, getSupportedProviders } from './configLoader';
 
 /**
  * Interface for model information
@@ -18,7 +17,6 @@ export interface ModelInfo {
 export interface ProviderDetails {
     id: string;
     name: string;
-    category: string;
     requiresApiKey: boolean;
     requiresBaseUrl: boolean;
     allowCustomModel: boolean;
@@ -36,20 +34,20 @@ export class ProviderService {
      */
     public static async getAllProviders(): Promise<ProviderDetails[]> {
         try {
-            // Convert the PROVIDER_INFO to ProviderDetails format
-            const providers = Object.entries(PROVIDER_INFO).map(([id, info]) => {
+            // Get providers from the configLoader
+            const providers = getSupportedProviders();
+            
+            // Convert to ProviderDetails format
+            return providers.map(provider => {
                 return {
-                    id,
-                    name: this.getProviderDisplayName(id),
-                    category: info.category,
-                    requiresApiKey: this.requiresApiKey(id),
-                    requiresBaseUrl: this.requiresBaseUrl(id),
-                    allowCustomModel: this.allowsCustomModel(id),
+                    id: provider.id,
+                    name: this.getProviderDisplayName(provider.id),
+                    requiresApiKey: provider.requiredCredentials.includes('apiKey'),
+                    requiresBaseUrl: provider.requiredCredentials.includes('baseUrl'),
+                    allowCustomModel: this.allowsCustomModel(provider.id),
                     models: [] // Will be populated on demand
                 };
             });
-
-            return providers;
         } catch (error) {
             logger.error('Error getting providers:', error);
             throw new Error(`Failed to get providers: ${error instanceof Error ? error.message : String(error)}`);
@@ -59,19 +57,25 @@ export class ProviderService {
     /**
      * Get models for a specific provider
      * @param providerId The provider ID
-     * @param config Optional configuration for providers that need it (like baseUrl for Ollama)
+     * @param credentials Optional credentials for providers that require them to list models
      */
-    public static async getModelsForProvider(providerId: string, config?: Partial<AiConfig>): Promise<ModelInfo[]> {
+    public static async getModelsForProvider(providerId: string, credentials?: Record<string, any>): Promise<ModelInfo[]> {
         try {
             const providerLower = providerId.toLowerCase();
-
+            
             // For Ollama, fetch models dynamically if baseUrl is provided
-            if (providerLower === 'ollama' && config?.baseUrl) {
-                return await this.fetchOllamaModels(config.baseUrl);
+            if (providerLower === 'ollama' && credentials?.baseUrl) {
+                return await this.fetchOllamaModels(credentials.baseUrl);
             }
-
-            // For other providers, return predefined models
-            return this.getPredefinedModels(providerLower);
+            
+            // For other providers, use the configLoader
+            const modelIds = await getModelsForProvider(providerLower, credentials);
+            
+            // Convert to ModelInfo format
+            return modelIds.map(id => ({
+                id,
+                name: this.formatModelName(id)
+            }));
         } catch (error) {
             logger.error(`Error getting models for provider ${providerId}:`, error);
             throw new Error(`Failed to get models for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -88,24 +92,27 @@ export class ProviderService {
             const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
             
             // Fetch models from Ollama API
-            const response = await axios.get(`${normalizedBaseUrl}/api/tags`);
+            const response = await fetch(`${normalizedBaseUrl}/api/tags`);
             
-            if (response.data && Array.isArray(response.data.models)) {
-                // Map Ollama models to ModelInfo format
-                return response.data.models.map((model: any) => ({
-                    id: model.name,
-                    name: model.name,
-                    description: `Size: ${this.formatSize(model.size)}`
-                }));
+            if (response.ok) {
+                const data = await response.json();
+                if (data && Array.isArray(data.models)) {
+                    // Map Ollama models to ModelInfo format
+                    return data.models.map((model: any) => ({
+                        id: model.name,
+                        name: model.name,
+                        description: `Size: ${this.formatSize(model.size)}`
+                    }));
+                }
             }
             
             // Fallback to default models if API response is not as expected
             logger.warn('Unexpected Ollama API response format, using default models');
-            return this.getPredefinedModels('ollama');
+            return this.getDefaultModels('ollama');
         } catch (error) {
             logger.error('Error fetching Ollama models:', error);
             // Return default models on error
-            return this.getPredefinedModels('ollama');
+            return this.getDefaultModels('ollama');
         }
     }
 
@@ -121,35 +128,12 @@ export class ProviderService {
     }
 
     /**
-     * Get predefined models for a provider
+     * Get default models for a provider
      * @param providerId The provider ID
      */
-    private static getPredefinedModels(providerId: string): ModelInfo[] {
+    private static getDefaultModels(providerId: string): ModelInfo[] {
         // This is a temporary solution until we implement dynamic model fetching for all providers
-        // In the future, this could be replaced with API calls to fetch models from the provider
         switch (providerId) {
-            case 'googleai':
-                return [
-                    { id: 'models/gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-                    { id: 'models/gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-                    { id: 'models/gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B' },
-                    { id: 'models/gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-                    { id: 'models/gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite' },
-                    { id: 'models/gemini-2.5-pro-preview-03-25', name: 'Gemini 2.5 Pro (Preview 03-25)' },
-                ];
-            case 'openai':
-                return [
-                    { id: 'gpt-4o', name: 'GPT-4o' },
-                    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
-                    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
-                ];
-            case 'anthropic':
-                return [
-                    { id: 'claude-3-5-sonnet-20240620', name: 'Claude 3.5 Sonnet' },
-                    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
-                    { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet' },
-                    { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku' },
-                ];
             case 'ollama':
                 return [
                     { id: 'llama3', name: 'Llama 3' },
@@ -157,11 +141,25 @@ export class ProviderService {
                     { id: 'codellama', name: 'Code Llama' },
                     { id: 'phi3', name: 'Phi-3' },
                 ];
-            // Add cases for other providers as needed
             default:
                 // For unknown providers, return an empty array
                 return [];
         }
+    }
+
+    /**
+     * Format a model ID into a display name
+     * @param modelId The model ID
+     */
+    private static formatModelName(modelId: string): string {
+        // Remove any prefixes like 'models/'
+        const cleanId = modelId.replace(/^models\//, '');
+        
+        // Replace hyphens and underscores with spaces
+        const spacedId = cleanId.replace(/[-_]/g, ' ');
+        
+        // Capitalize words
+        return spacedId.replace(/\b\w/g, c => c.toUpperCase());
     }
 
     /**
@@ -190,22 +188,6 @@ export class ProviderService {
         };
 
         return displayNames[providerId] || providerId;
-    }
-
-    /**
-     * Check if a provider requires an API key
-     */
-    private static requiresApiKey(providerId: string): boolean {
-        // Most providers require an API key except for Ollama and ChromeAI
-        return !['ollama', 'chromeai'].includes(providerId.toLowerCase());
-    }
-
-    /**
-     * Check if a provider requires a base URL
-     */
-    private static requiresBaseUrl(providerId: string): boolean {
-        // Only Ollama and Azure require a base URL by default
-        return ['ollama', 'azure'].includes(providerId.toLowerCase());
     }
 
     /**

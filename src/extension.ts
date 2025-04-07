@@ -63,7 +63,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			// Format providers for QuickPick
 			const providerQuickPickItems = allProviders.map(provider => ({
 				label: provider.name,
-				detail: `${provider.category.charAt(0).toUpperCase() + provider.category.slice(1)} provider${!provider.requiresApiKey ? ' (No API key needed)' : ''}`,
+				detail: `${provider.requiresApiKey ? 'Requires API key' : 'No API key needed'}`,
 				value: provider.id
 			}));
 			
@@ -187,9 +187,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				try {
 					// Import configLoader only when needed
 					const { initializeAiSdkModel } = await import('./ai-sdk/configLoader.js');
+					// Get the model ID from the config if available
+					const config = vscode.workspace.getConfiguration('apexCoder.ai');
+					const modelId = config.get<string>('model');
+					
 					await initializeAiSdkModel({
 						provider: provider.value,
-						apiKey: apiKey
+						modelId: modelId,
+						credentials: {
+							apiKey: apiKey
+						}
 					});
 					return true;
 				} catch (error) {

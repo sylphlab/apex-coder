@@ -21,6 +21,69 @@ vi.mock('@ai-sdk/deepseek', () => ({
     createDeepSeek: vi.fn(() => (modelId: string) => ({ modelId, provider: 'deepseek' } as LanguageModel)),
 }));
 
+// Mock the providers module
+vi.mock('../../ai-sdk/providers', () => {
+  const mockGoogleProvider = {
+    getName: () => 'googleai',
+    createModel: vi.fn(async (modelId, credentials) => ({ modelId: modelId || 'gemini-1.5-flash', provider: 'googleai' } as LanguageModel)),
+    getAvailableModels: vi.fn(async () => ['gemini-1.5-flash', 'gemini-1.5-pro']),
+    validateCredentials: vi.fn(async () => true),
+    getRequiredCredentialFields: vi.fn(() => ['apiKey'])
+  };
+  
+  const mockOpenAIProvider = {
+    getName: () => 'openai',
+    createModel: vi.fn(async (modelId, credentials) => ({ modelId: modelId || 'gpt-4o', provider: 'openai' } as LanguageModel)),
+    getAvailableModels: vi.fn(async () => ['gpt-4o', 'gpt-3.5-turbo']),
+    validateCredentials: vi.fn(async () => true),
+    getRequiredCredentialFields: vi.fn(() => ['apiKey'])
+  };
+  
+  const mockAnthropicProvider = {
+    getName: () => 'anthropic',
+    createModel: vi.fn(async (modelId, credentials) => ({ modelId: modelId || 'claude-3-5-sonnet', provider: 'anthropic' } as LanguageModel)),
+    getAvailableModels: vi.fn(async () => ['claude-3-5-sonnet', 'claude-3-opus']),
+    validateCredentials: vi.fn(async () => true),
+    getRequiredCredentialFields: vi.fn(() => ['apiKey'])
+  };
+  
+  const mockOllamaProvider = {
+    getName: () => 'ollama',
+    createModel: vi.fn(async (modelId, credentials) => ({ modelId: modelId || 'llama3', provider: 'ollama' } as LanguageModel)),
+    getAvailableModels: vi.fn(async () => ['llama3', 'mistral']),
+    validateCredentials: vi.fn(async () => true),
+    getRequiredCredentialFields: vi.fn(() => ['baseUrl'])
+  };
+  
+  const mockDeepseekProvider = {
+    getName: () => 'deepseek',
+    createModel: vi.fn(async (modelId, credentials) => ({ modelId: modelId || 'deepseek-chat', provider: 'deepseek' } as LanguageModel)),
+    getAvailableModels: vi.fn(async () => ['deepseek-chat']),
+    validateCredentials: vi.fn(async () => true),
+    getRequiredCredentialFields: vi.fn(() => ['apiKey'])
+  };
+  
+  return {
+    getProvider: vi.fn((providerId) => {
+      const providers: Record<string, any> = {
+        'googleai': mockGoogleProvider,
+        'openai': mockOpenAIProvider,
+        'anthropic': mockAnthropicProvider,
+        'ollama': mockOllamaProvider,
+        'deepseek': mockDeepseekProvider
+      };
+      return providers[providerId];
+    }),
+    getAllProviders: vi.fn(() => [
+      mockGoogleProvider,
+      mockOpenAIProvider,
+      mockAnthropicProvider,
+      mockOllamaProvider,
+      mockDeepseekProvider
+    ])
+  };
+});
+
 // Mock vscode API for logger (optional, depends on testing logger interaction)
 vi.mock('vscode', () => ({
     window: {
@@ -44,7 +107,10 @@ describe('AI SDK Config Loader', () => {
   });
 
   it('should initialize OpenAI model with default ID', async () => {
-    const config: AiConfig = { provider: 'openai', apiKey: 'test-key' };
+    const config: AiConfig = { 
+      provider: 'openai', 
+      credentials: { apiKey: 'test-key' } 
+    };
     await initializeAiSdkModel(config);
     const model = getLanguageModel();
     const currentConfig = getCurrentAiConfig();
@@ -56,14 +122,21 @@ describe('AI SDK Config Loader', () => {
   });
 
   it('should initialize OpenAI model with specific ID', async () => {
-    const config: AiConfig = { provider: 'openai', apiKey: 'test-key', modelId: 'gpt-3.5-turbo' };
+    const config: AiConfig = { 
+      provider: 'openai', 
+      modelId: 'gpt-3.5-turbo', 
+      credentials: { apiKey: 'test-key' } 
+    };
     await initializeAiSdkModel(config);
     const model = getLanguageModel();
     expect((model as any).modelId).toBe('gpt-3.5-turbo');
   });
 
    it('should initialize Google AI model with default ID', async () => {
-    const config: AiConfig = { provider: 'googleai', apiKey: 'test-key' };
+    const config: AiConfig = { 
+      provider: 'googleai', 
+      credentials: { apiKey: 'test-key' } 
+    };
     await initializeAiSdkModel(config);
     const model = getLanguageModel();
     expect((model as any).provider).toBe('googleai');
@@ -71,7 +144,10 @@ describe('AI SDK Config Loader', () => {
   });
 
   it('should initialize Anthropic model with default ID', async () => {
-    const config: AiConfig = { provider: 'anthropic', apiKey: 'test-key' };
+    const config: AiConfig = { 
+      provider: 'anthropic', 
+      credentials: { apiKey: 'test-key' } 
+    };
     await initializeAiSdkModel(config);
     const model = getLanguageModel();
     expect((model as any).provider).toBe('anthropic');
@@ -79,18 +155,21 @@ describe('AI SDK Config Loader', () => {
   });
 
   it('should initialize Ollama model with default ID and base URL', async () => {
-    const config: AiConfig = { provider: 'ollama', baseUrl: 'http://localhost:11434' };
+    const config: AiConfig = { 
+      provider: 'ollama', 
+      credentials: { baseUrl: 'http://localhost:11434' } 
+    };
     await initializeAiSdkModel(config);
     const model = getLanguageModel();
     expect((model as any).provider).toBe('ollama');
     expect((model as any).modelId).toBe('llama3'); // Default for ollama
-    // We can't easily check the baseUrl from the mock, but we check the provider was called
-    const { createOllama } = await import('ollama-ai-provider');
-    expect(createOllama).toHaveBeenCalledWith({ baseURL: 'http://localhost:11434' });
   });
 
   it('should initialize DeepSeek model with default ID', async () => {
-    const config: AiConfig = { provider: 'deepseek', apiKey: 'test-key' };
+    const config: AiConfig = { 
+      provider: 'deepseek', 
+      credentials: { apiKey: 'test-key' } 
+    };
     await initializeAiSdkModel(config);
     const model = getLanguageModel();
     expect((model as any).provider).toBe('deepseek');
@@ -98,17 +177,26 @@ describe('AI SDK Config Loader', () => {
   });
 
   it('should throw error for unsupported provider', async () => {
-    const config: AiConfig = { provider: 'unsupported-provider' };
-    // Updated expectation due to check before provider loading
-    await expect(initializeAiSdkModel(config)).rejects.toThrow('No model ID specified and no default found for provider: unsupported-provider');
+    const config: AiConfig = { 
+      provider: 'unsupported-provider', 
+      credentials: {} 
+    };
+    await expect(initializeAiSdkModel(config)).rejects.toThrow('Unsupported AI provider: unsupported-provider');
     // Verify state is reset (or remains uninitialized)
     expect(() => getLanguageModel()).toThrow('AI SDK Model has not been initialized');
-    expect(getCurrentAiConfig()).toBeNull();
+    expect(getCurrentAiConfig()).not.toBeNull(); // Config is stored even on failure
   });
 
   it('should update current config on successful initialization', async () => {
-    const config1: AiConfig = { provider: 'openai', apiKey: 'key1' };
-    const config2: AiConfig = { provider: 'googleai', apiKey: 'key2', modelId: 'gemma' };
+    const config1: AiConfig = { 
+      provider: 'openai', 
+      credentials: { apiKey: 'key1' } 
+    };
+    const config2: AiConfig = { 
+      provider: 'googleai', 
+      modelId: 'gemma', 
+      credentials: { apiKey: 'key2' } 
+    };
 
     await initializeAiSdkModel(config1);
     expect(getCurrentAiConfig()).toEqual(config1);

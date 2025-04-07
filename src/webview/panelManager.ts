@@ -30,7 +30,12 @@ interface ConfigStatusPayload {
     modelId?: string;
 }
 
-interface SaveConfigPayload extends AiConfig { }
+interface SaveConfigPayload {
+    provider: string;
+    modelId?: string;
+    apiKey?: string;
+    baseUrl?: string;
+}
 
 interface SendMessagePayload {
     id: string; // Unique ID for the stream
@@ -270,8 +275,23 @@ export class PanelManager {
                 logger.info(`API Key stored for provider: ${provider}`);
             }
 
+            // Create AiConfig object for initialization
+            const aiConfig: AiConfig = {
+                provider,
+                modelId,
+                credentials: {}
+            };
+            
+            // Add credentials based on provider
+            if (apiKey) {
+                aiConfig.credentials.apiKey = apiKey;
+            }
+            if (baseUrl) {
+                aiConfig.credentials.baseUrl = baseUrl;
+            }
+            
             // Force re-initialization after saving new config
-            const initSuccess = await this.tryInitializeModel(true);
+            const initSuccess = await this.tryInitializeModel(true, aiConfig);
 
             vscode.window.showInformationMessage(`Configuration for ${provider} saved successfully.`);
             logger.info('Configuration saved and model re-initialization attempted.');
@@ -382,7 +402,7 @@ export class PanelManager {
      * @param forceReinitialize If true, forces re-initialization even if already initialized.
      * @returns True if initialization was successful, false otherwise.
      */
-    private async tryInitializeModel(forceReinitialize: boolean = false): Promise<boolean> {
+    private async tryInitializeModel(forceReinitialize: boolean = false, config?: AiConfig): Promise<boolean> {
         if (this.isModelInitialized && !forceReinitialize) {
             logger.info('Model already initialized.');
             return true;
@@ -392,12 +412,13 @@ export class PanelManager {
         resetAiSdkModel(); // Reset core SDK state before trying
 
         try {
-            const config = await this.loadConfiguration();
-            if (!config) {
+            // Use provided config or load from settings
+            const aiConfig = config || await this.loadConfiguration();
+            if (!aiConfig) {
                 logger.warn('AI configuration is incomplete. Cannot initialize model.');
                 return false;
             }
-            await initializeAiSdkModel(config);
+            await initializeAiSdkModel(aiConfig);
             this.isModelInitialized = true;
             logger.info('AI Model initialized successfully.');
             return true;
@@ -428,7 +449,20 @@ export class PanelManager {
             return null; // API key required (except for Ollama)
         }
 
-        return { provider, modelId, apiKey, baseUrl };
+        // Create credentials object based on provider
+        const credentials: Record<string, string> = {};
+        if (apiKey) {
+            credentials.apiKey = apiKey;
+        }
+        if (baseUrl) {
+            credentials.baseUrl = baseUrl;
+        }
+
+        return {
+            provider,
+            modelId,
+            credentials
+        };
     }
 
     /**

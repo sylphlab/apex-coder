@@ -15,7 +15,6 @@ export interface ModelInfo {
 export interface ProviderDetails {
     id: string;
     name: string;
-    category: string;
     requiresApiKey: boolean;
     requiresBaseUrl: boolean;
     allowCustomModel: boolean;
@@ -142,29 +141,5 @@ export class ProviderService {
     public static clearCache(): void {
         this.providers = [];
         this.modelCache = {};
-    }
-
-    /**
-     * Get providers grouped by category
-     */
-    public static async getProvidersGroupedByCategory(): Promise<Record<string, ProviderDetails[]>> {
-        const providers = await this.getAllProviders();
-        const grouped: Record<string, ProviderDetails[]> = {
-            core: [],
-            cloud: [],
-            enterprise: [],
-            community: []
-        };
-
-        providers.forEach(provider => {
-            const category = provider.category || 'core';
-            if (grouped[category]) {
-                grouped[category].push(provider);
-            } else {
-                grouped.core.push(provider);
-            }
-        });
-
-        return grouped;
     }
 }

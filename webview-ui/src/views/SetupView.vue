@@ -112,26 +112,9 @@ const selectedProvider = computed(() => {
             class="input-nordic"
           >
             <option value="">-- Select Provider --</option>
-            <optgroup label="Core Providers">
-              <option v-for="provider in providers.filter(p => p.category === 'core')" :key="provider.id" :value="provider.id">
-                {{ provider.name }}
-              </option>
-            </optgroup>
-            <optgroup label="Cloud Providers">
-              <option v-for="provider in providers.filter(p => p.category === 'cloud')" :key="provider.id" :value="provider.id">
-                {{ provider.name }}
-              </option>
-            </optgroup>
-            <optgroup label="Enterprise Providers">
-              <option v-for="provider in providers.filter(p => p.category === 'enterprise')" :key="provider.id" :value="provider.id">
-                {{ provider.name }}
-              </option>
-            </optgroup>
-            <optgroup label="Community Providers">
-              <option v-for="provider in providers.filter(p => p.category === 'community')" :key="provider.id" :value="provider.id">
-                {{ provider.name }}
-              </option>
-            </optgroup>
+            <option v-for="provider in providers" :key="provider.id" :value="provider.id">
+              {{ provider.name }}
+            </option>
           </select>
         </div>
 

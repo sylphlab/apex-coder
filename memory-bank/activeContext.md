@@ -1,4 +1,4 @@
-<!-- Version: 1.29 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.30 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
@@ -6,7 +6,7 @@
 
 **Current Status:** Foundational structure (Extension, WebView) complete. Basic communication tested. Project structure moved to root. Vercel AI SDK integrated. UI styling refactored to use UnoCSS. Auto-panel display implemented. **UnoCSS styles confirmed working in both browser and WebView.**
 
-**Focus:** **UI Overhaul** - Redesigning the WebView UI (`App.vue`) for a modern, minimalist Nordic aesthetic using UnoCSS.
+**Focus:** **Provider-First Architecture** - Redesigned the AI provider system to use a modular, file-based approach for better maintainability.
 
 **Activation Issue Resolved:** Previous activation failures were identified as specific to the Cursor editor environment. Standard VS Code environment activates the extension correctly. User has pulled the project state corresponding to the completed Vercel AI SDK refactoring.
 
@@ -56,7 +56,14 @@
 22. **Committed:** Committed UI styling changes and Memory Bank updates (Commit `6707987`).
 23. **UI Theme Integration:** Refined theme variable usage in `ChatView.vue` for better consistency (status bar border, user message colors).
 24. **Committed:** Committed theme integration refinements and Memory Bank updates (Commit `a343f92`).
-25. **Next Step:** Begin refining secure API key handling. Analyze `extension.ts` for current logic and plan improvements (e.g., prompt on activation if key missing for required provider).
+25. **Provider-First Architecture Implemented:**
+    *   Created base provider interface (`BaseAIProvider`) and implementation classes for each provider.
+    *   Implemented provider-specific files for Google AI, OpenAI, Anthropic, Ollama, Mistral, Azure, Cohere, and DeepSeek.
+    *   Updated `configLoader.ts` to use the new provider architecture.
+    *   Modified `AiConfig` interface to use a credentials object for provider-specific settings.
+    *   Updated related files (`extension.ts`, `panelManager.ts`, tests) to work with the new architecture.
+26. **Next Step:** Refine secure API key handling. Analyze `extension.ts` for current logic and plan improvements (e.g., prompt on activation if key missing for required provider).
+
 **Decisions Made:**
 - Project Name: Apex Coder
 - Core Tech Stack: VSCode Ext (TS), Vue.js (WebView), **Vercel AI SDK (Integrated)**
@@ -64,11 +71,9 @@
 - Integration Approach: Integrate Vercel AI SDK directly into Extension Host (方案 A).
 - UI Styling: **UnoCSS** (replacing previous manual CSS).
 - Activation: Activate on command and **on startup**, automatically show panel.
+- **Provider Architecture:** Provider-first design with separate files for each provider.
 
 **Open Questions/Risks:**
-- Performance of Vercel AI SDK within Extension Host.
-- Handling diverse provider configurations dynamically with Vercel AI SDK.
-- Secure credential handling with Vercel AI SDK.
 - Performance of Vercel AI SDK within Extension Host.
 - Handling diverse provider configurations dynamically with Vercel AI SDK.
 - Secure credential handling with Vercel AI SDK.
