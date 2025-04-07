@@ -1,5 +1,5 @@
 import type { LanguageModel } from 'ai';
-import { logger } from '../utils/logger'; // Import from separate file
+import { logger } from '../utils/logger';
 
 // Define the expected configuration structure
 export interface AiConfig {
@@ -11,42 +11,164 @@ export interface AiConfig {
     // Add other potential config fields
 }
 
-// Define default model IDs as constants
-const DEFAULT_MODELS: Record<string, string> = {
+// Provider information structure
+interface ProviderInfo {
+    defaultModel: string;
+    importPath: string;
+    creatorFunction: string;
+    category: 'core' | 'cloud' | 'enterprise' | 'community';
+}
+
+// Define provider information with default models and import details
+const PROVIDER_INFO: Record<string, ProviderInfo> = {
     // Core providers
-    googleai: 'gemini-1.5-flash',
-    openai: 'gpt-4o',
-    anthropic: 'claude-3-5-sonnet',
-    ollama: 'llama3',
-    deepseek: 'deepseek-chat',
+    googleai: {
+        defaultModel: 'gemini-1.5-flash',
+        importPath: '@ai-sdk/google',
+        creatorFunction: 'createGoogleGenerativeAI',
+        category: 'core'
+    },
+    openai: {
+        defaultModel: 'gpt-4o',
+        importPath: '@ai-sdk/openai',
+        creatorFunction: 'createOpenAI',
+        category: 'core'
+    },
+    anthropic: {
+        defaultModel: 'claude-3-5-sonnet',
+        importPath: '@ai-sdk/anthropic',
+        creatorFunction: 'createAnthropic',
+        category: 'core'
+    },
+    ollama: {
+        defaultModel: 'llama3',
+        importPath: 'ollama-ai-provider',
+        creatorFunction: 'createOllama',
+        category: 'core'
+    },
+    deepseek: {
+        defaultModel: 'deepseek-chat',
+        importPath: '@ai-sdk/deepseek',
+        creatorFunction: 'createDeepSeek',
+        category: 'core'
+    },
+    xai: {
+        defaultModel: 'grok-2-1212',
+        importPath: '@ai-sdk/xai',
+        creatorFunction: 'createXai',
+        category: 'core'
+    },
+    cerebras: {
+        defaultModel: 'llama3.1-70b',
+        importPath: '@ai-sdk/cerebras',
+        creatorFunction: 'createCerebras',
+        category: 'core'
+    },
     
     // Cloud providers
-    vertexai: 'gemini-1.5-flash',
-    cohere: 'command',
-    mistral: 'mistral-large-latest',
-    perplexity: 'sonar-medium-online',
-    replicate: 'meta/llama-3-70b-instruct',
-    fireworks: 'llama-v3-70b-instruct',
-    together: 'togethercomputer/llama-3-70b-instruct',
-    huggingface: 'mistralai/Mistral-7B-Instruct-v0.2',
-    anyscale: 'meta-llama/Llama-3-70b-chat-hf',
-    deepinfra: 'meta-llama/Meta-Llama-3-70B-Instruct',
+    vertexai: {
+        defaultModel: 'gemini-1.5-flash',
+        importPath: '@ai-sdk/google-vertex',
+        creatorFunction: 'createVertex',
+        category: 'cloud'
+    },
+    cohere: {
+        defaultModel: 'command',
+        importPath: '@ai-sdk/cohere',
+        creatorFunction: 'createCohere',
+        category: 'cloud'
+    },
+    mistral: {
+        defaultModel: 'mistral-large-latest',
+        importPath: '@ai-sdk/mistral',
+        creatorFunction: 'createMistral',
+        category: 'cloud'
+    },
+    perplexity: {
+        defaultModel: 'sonar-medium-online',
+        importPath: '@ai-sdk/perplexity',
+        creatorFunction: 'createPerplexity',
+        category: 'cloud'
+    },
+    replicate: {
+        defaultModel: 'meta/llama-3-70b-instruct',
+        importPath: '@ai-sdk/replicate',
+        creatorFunction: 'createReplicate',
+        category: 'cloud'
+    },
+    fireworks: {
+        defaultModel: 'llama-v3-70b-instruct',
+        importPath: '@ai-sdk/fireworks',
+        creatorFunction: 'createFireworks',
+        category: 'cloud'
+    },
+    together: {
+        defaultModel: 'togethercomputer/llama-3-70b-instruct',
+        importPath: '@ai-sdk/togetherai',
+        creatorFunction: 'createTogetherAI',
+        category: 'cloud'
+    },
+    deepinfra: {
+        defaultModel: 'meta-llama/Meta-Llama-3-70B-Instruct',
+        importPath: '@ai-sdk/deepinfra',
+        creatorFunction: 'createDeepInfra',
+        category: 'cloud'
+    },
     
     // Enterprise providers
-    aws: 'anthropic.claude-3-sonnet-20240229-v1:0',
-    bedrock: 'anthropic.claude-3-sonnet-20240229-v1:0',
-    azure: 'gpt-4',
-    groq: 'llama3-70b-8192',
+    aws: {
+        defaultModel: 'anthropic.claude-3-sonnet-20240229-v1:0',
+        importPath: '@ai-sdk/amazon-bedrock',
+        creatorFunction: 'createAmazonBedrock',
+        category: 'enterprise'
+    },
+    bedrock: {
+        defaultModel: 'anthropic.claude-3-sonnet-20240229-v1:0',
+        importPath: '@ai-sdk/amazon-bedrock',
+        creatorFunction: 'createAmazonBedrock',
+        category: 'enterprise'
+    },
+    azure: {
+        defaultModel: 'gpt-4',
+        importPath: '@ai-sdk/azure',
+        creatorFunction: 'createAzure',
+        category: 'enterprise'
+    },
+    groq: {
+        defaultModel: 'llama3-70b-8192',
+        importPath: '@ai-sdk/groq',
+        creatorFunction: 'createGroq',
+        category: 'enterprise'
+    },
+    
+    // Community providers
+    chromeai: {
+        defaultModel: 'gemini-1.5-pro',
+        importPath: 'chrome-ai',
+        creatorFunction: 'polyfillChromeAI',
+        category: 'community'
+    },
+    openrouter: {
+        defaultModel: 'openai/gpt-4',
+        importPath: '@openrouter/ai-sdk-provider',
+        creatorFunction: 'createOpenRouter',
+        category: 'community'
+    }
 };
+
+// Helper function to get default model for a provider
+export function getDefaultModel(providerName: string): string | undefined {
+    const providerLower = providerName.toLowerCase();
+    const info = PROVIDER_INFO[providerLower];
+    return info?.defaultModel;
+}
 
 // Store the initialized model instance and config
 let languageModelInstance: LanguageModel | null = null;
 let currentConfig: AiConfig | null = null;
 
-// Type for the provider creation functions (adjust as needed based on actual provider types)
-// Type for the provider creation functions (adjust as needed based on actual provider types)
-// TODO: Find the correct type for LanguageModelProvider or use a more specific union type
-type ProviderCreator = (options?: { apiKey?: string; baseURL?: string; baseUrl?: string; location?: string; /* other options */ }) => any;
+// Type for the provider creation functions
+type ProviderCreator = (options?: { apiKey?: string; baseURL?: string; baseUrl?: string; location?: string; [key: string]: any }) => any;
 
 /**
  * Loads the appropriate provider creation function dynamically.
@@ -55,67 +177,31 @@ type ProviderCreator = (options?: { apiKey?: string; baseURL?: string; baseUrl?:
  */
 async function loadProviderCreator(providerName: string): Promise<ProviderCreator> {
     try {
-        // Core providers - these are installed by default
-        switch (providerName) {
-            case 'googleai':
-                return (await import('@ai-sdk/google')).createGoogleGenerativeAI;
-            case 'openai':
-                return (await import('@ai-sdk/openai')).createOpenAI;
-            case 'anthropic':
-                return (await import('@ai-sdk/anthropic')).createAnthropic;
-            case 'ollama':
-                return (await import('ollama-ai-provider')).createOllama as ProviderCreator;
-            case 'deepseek':
-                return (await import('@ai-sdk/deepseek')).createDeepSeek;
+        const providerLower = providerName.toLowerCase();
+        const info = PROVIDER_INFO[providerLower];
+        
+        if (!info) {
+            throw new Error(`Unsupported AI provider: ${providerName}`);
         }
         
-        // Additional providers - these require installation via install-providers.js
-        // We use dynamic imports with try/catch to handle missing packages gracefully
         try {
-            switch (providerName) {
-                // Cloud providers
-                case 'vertexai':
-                    return (await import('@ai-sdk/google-vertex')).createVertex;
-                case 'cohere':
-                    return (await import('@ai-sdk/cohere')).createCohere;
-                case 'mistral':
-                    return (await import('@ai-sdk/mistral')).createMistral;
-                case 'perplexity':
-                    return (await import('@ai-sdk/perplexity')).createPerplexity;
-                case 'replicate':
-                    return (await import('@ai-sdk/replicate')).createReplicate;
-                case 'fireworks':
-                    return (await import('@ai-sdk/fireworks')).createFireworks;
-                case 'together':
-                    return (await import('@ai-sdk/togetherai')).createTogether;
-                case 'huggingface':
-                    return (await import('@ai-sdk/huggingface')).createHuggingFace;
-                case 'anyscale':
-                    return (await import('@ai-sdk/anyscale')).createAnyscale;
-                case 'deepinfra':
-                    return (await import('@ai-sdk/deepinfra')).createDeepInfra;
-                    
-                // Enterprise providers
-                case 'bedrock':
-                case 'aws':
-                    return (await import('@ai-sdk/amazon-bedrock')).createAmazonBedrock;
-                case 'azure':
-                    return (await import('@ai-sdk/azure')).createAzure;
-                case 'groq':
-                    return (await import('@ai-sdk/groq')).createGroq;
+            const module = await import(info.importPath);
+            const creatorFunction = module[info.creatorFunction];
+            
+            if (!creatorFunction) {
+                throw new Error(`Creator function '${info.creatorFunction}' not found in module '${info.importPath}'`);
             }
+            
+            return creatorFunction as ProviderCreator;
         } catch (importError) {
             // Handle missing package error
-            throw new Error(`Provider package for '${providerName}' is not installed. Please run 'node install-providers.js --providers=${providerName}' to install it.`);
+            throw new Error(`Provider package '${info.importPath}' is not installed or has an incorrect export. Please check your dependencies.`);
         }
-        
-        // If we get here, the provider is not supported
-        throw new Error(`Unsupported AI provider: ${providerName}`);
     } catch (error) {
         // Provide a more helpful error message
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (errorMessage.includes("Cannot find module") || errorMessage.includes("Failed to resolve")) {
-            throw new Error(`Provider package for '${providerName}' is not installed. Please run 'node install-providers.js --providers=${providerName}' to install it.`);
+            throw new Error(`Provider package for '${providerName}' is not installed. Please install it using npm/pnpm.`);
         }
         throw error;
     }
@@ -127,7 +213,7 @@ async function loadProviderCreator(providerName: string): Promise<ProviderCreato
  */
 export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
     const providerLower = config.provider.toLowerCase();
-    const modelIdentifier = config.modelId || DEFAULT_MODELS[providerLower] || '';
+    const modelIdentifier = config.modelId || getDefaultModel(providerLower) || '';
     logger.info(`Initializing AI SDK for provider: ${providerLower} with model: ${modelIdentifier}`);
 
     if (!modelIdentifier) {
@@ -153,9 +239,6 @@ export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
 
         // Get the specific model instance from the provider
         languageModelInstance = providerInstance(modelIdentifier);
-
-        // Attempt a simple check if possible (optional, might require specific provider knowledge)
-        // e.g., if (typeof languageModelInstance?.generate !== 'function') throw new Error('Invalid model instance');
 
         logger.info(`AI SDK Model initialized successfully: ${providerLower}/${modelIdentifier}`);
 
@@ -195,4 +278,15 @@ export function resetAiSdkModel(): void {
     logger.info('Resetting AI SDK Model and configuration.');
     languageModelInstance = null;
     currentConfig = null;
+}
+
+/**
+ * Returns a list of all supported providers with their categories.
+ */
+export function getSupportedProviders(): { name: string; category: string; defaultModel: string }[] {
+    return Object.entries(PROVIDER_INFO).map(([name, info]) => ({
+        name,
+        category: info.category,
+        defaultModel: info.defaultModel
+    }));
 }
