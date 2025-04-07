@@ -15,7 +15,29 @@
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "${defaultBuildTask}" // Runs the default build task (usually tsc compile)
+		},
+		{
+			"name": "Run Vite Dev Server",
+			"type": "node-terminal", // Use node-terminal to run in integrated terminal
+			"request": "launch",
+			"command": "pnpm --filter webview-ui dev",
+			"cwd": "${workspaceFolder}", // Run in the root workspace folder
+			"serverReadyAction": {
+				"pattern": "Local:\\s+(https?://localhost:\\d+)", // Wait for Vite server ready message
+				"uriFormat": "%s",
+				"action": "debugWithChrome" // Optional: Open the dev server URL in Chrome debugger
+			}
+		}
+	],
+	"compounds": [
+		{
+			"name": "Extension + Vite Dev", // Name for the compound configuration
+			"configurations": [
+				"Run Extension",
+				"Run Vite Dev Server"
+			],
+			"stopAll": true // Stop both processes when debugging stops
 		}
 	]
 }

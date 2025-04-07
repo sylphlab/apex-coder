@@ -30,6 +30,7 @@
         *   Connect status button to `getConfigStatus`.
     8.  **Implemented (Frontend):** Changed Provider and Model ID inputs in `App.vue` setup form to dropdown selects with predefined options (including Google Gemini models). Added logic for conditional display of API Key/Base URL fields and handling custom model IDs.
     9.  **Refactored:** Modified `src/extension.ts` to support loading Webview content from Vite dev server (`IS_DEVELOPMENT = true`) for hot-reloading during development.
+    10. **Configured:** Updated `.vscode/launch.json` with a compound launch configuration ("Extension + Vite Dev") to automatically start both the extension host and the Vite dev server when pressing F5.
 8.  **Ready for Testing:** Test the complete setup and chat flow. This includes: <!-- Updated Status -->
     *   **Build Vue App:** Run `pnpm --filter webview-ui build` in the project root.
     *   Running the extension (F5), executing `Apex Coder: Show Apex Coder Panel` (should now show the Vue app without access errors).
