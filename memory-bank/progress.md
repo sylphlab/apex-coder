@@ -1,4 +1,4 @@
-<!-- Version: 1.25 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.27 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Progress: Apex Coder
 
@@ -34,7 +34,7 @@
     - Applied Nordic-inspired styles to `webview-ui/src/views/ChatView.vue`.
     - **Fix:** Corrected Vue template syntax errors in `ChatView.vue` caused by `apply_diff` comments.
 
-**Current Phase:** **UI Overhaul** - Applying modern Nordic minimalist style (Styling applied, pending review/commit).
+**Current Phase:** **UI Overhaul** - Theme integration refined, pending commit.
 
 **What Works:**
 - Basic Extension structure.
@@ -60,7 +60,9 @@
 - **UI Refactor:** Converted UI styling to use UnoCSS and fixed related issues.
 - **Auto-Display:** Implemented automatic panel display on startup.
 - **Fixed:** UnoCSS styles restored in browser and WebView.
-- **Current Task:** Commit UI styling changes and Memory Bank updates.
+- **Committed:** Committed UI styling changes (Commit `6707987`).
+- **Refined Theme Integration:** Adjusted theme variable usage in `ChatView.vue` for better consistency.
+- **Current Task:** Commit theme integration refinements and Memory Bank updates.
 - Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).
 - Add support for more Vercel AI SDK providers in `configLoader.ts`.

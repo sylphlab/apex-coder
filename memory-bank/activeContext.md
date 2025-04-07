@@ -1,4 +1,4 @@
-<!-- Version: 1.26 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.28 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
@@ -53,7 +53,9 @@
     *   Applied initial style adjustments (padding, title size) to `App.vue`.
 20. **UI Styling Applied:** Applied Nordic-inspired styles to `SetupView.vue` and `ChatView.vue` using UnoCSS.
 21. **Fix:** Corrected Vue template syntax errors in `ChatView.vue` caused by incorrectly placed comments during `apply_diff`.
-22. **Next Step:** Commit the UI styling changes and Memory Bank updates.
+22. **Committed:** Committed UI styling changes and Memory Bank updates (Commit `6707987`).
+23. **UI Theme Integration:** Refined theme variable usage in `ChatView.vue` for better consistency (status bar border, user message colors).
+24. **Next Step:** Commit the theme integration refinements and Memory Bank updates.
 **Decisions Made:**
 - Project Name: Apex Coder
 - Core Tech Stack: VSCode Ext (TS), Vue.js (WebView), **Vercel AI SDK (Integrated)**

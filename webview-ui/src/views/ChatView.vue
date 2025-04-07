@@ -125,9 +125,9 @@ const handleBlur = () => {
     <!-- Status Bar -->
     <div class="flex items-center justify-between text-xs mb-5 pb-3 border-b transition-colors duration-300"
          :style="{
-           borderColor: props.isModelInitialized 
-             ? 'var(--vscode-statusBarItem-successBackground, #89d185)'
-             : 'var(--vscode-statusBarItem-errorBackground, #f14c4c)'
+           borderColor: props.isModelInitialized
+             ? 'var(--vscode-focusBorder, #007fd4)' /* Use focus border for success indication */
+             : 'var(--vscode-errorForeground, #f14c4c)' /* Use error foreground for error indication */
          }">
       <div class="flex items-center space-x-4" style="color: var(--vscode-descriptionForeground, #7f7f7f);">
         <div class="flex items-center">
@@ -202,12 +202,12 @@ const handleBlur = () => {
            }"
            :style="{
              backgroundColor: msg.role === 'user'
-               ? 'var(--vscode-button-background, #007acc)' // Keep user message distinct
+               ? 'var(--vscode-list-activeSelectionBackground, #094771)' /* Use list selection background */
                : msg.error
                  ? 'var(--vscode-inputValidation-errorBackground, #f8d7da)'
                  : 'var(--vscode-input-background, #f0f0f0)', // Slightly lighter assistant background
              color: msg.role === 'user'
-               ? 'var(--vscode-button-foreground, white)'
+               ? 'var(--vscode-list-activeSelectionForeground, white)' /* Use list selection foreground */
                : msg.error
                  ? 'var(--vscode-inputValidation-errorForeground, #721c24)'
                  : 'var(--vscode-input-foreground, black)', // Standard text color
@@ -218,8 +218,8 @@ const handleBlur = () => {
         <div v-if="msg.role && msg.role !== 'error'" 
              class="text-xs opacity-75 mb-1 font-medium"
              :style="{ 
-               color: msg.role === 'user' 
-                 ? 'var(--vscode-button-foreground, white)' 
+               color: msg.role === 'user'
+                 ? 'var(--vscode-list-activeSelectionForeground, white)' /* Use list selection foreground */
                  : 'var(--vscode-descriptionForeground, #7f7f7f)'
              }">
           {{ msg.role === 'user' ? 'You' : 'Assistant' }}
