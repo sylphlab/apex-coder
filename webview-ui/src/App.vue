@@ -27,10 +27,11 @@ const providerOptions = ref([
     label: 'Google AI (Gemini)',
     models: [
       { value: '', label: '-- Select Model --' },
-      { value: 'models/gemini-1.5-flash', label: 'Gemini 1.5 Flash' }, // Use standard name first
-      { value: 'models/gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-      { value: 'models/gemini-1.5-flash-exp', label: 'Gemini 1.5 Flash (Exp)' }, // Added Exp
-      { value: 'models/gemini-1.5-pro-exp-03-25', label: 'Gemini 1.5 Pro (Exp 03-25)' }, // Added Exp
+      { value: 'models/gemini-1.5-pro', label: 'Gemini 1.5 Pro' }, // Reordered based on common usage
+      { value: 'models/gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+      { value: 'models/gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' }, // Added from scrape
+      { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' }, // Added from scrape
+      { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' }, // Added from scrape
     ],
     requiresApiKey: true,
     requiresBaseUrl: false,
