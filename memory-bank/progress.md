@@ -1,4 +1,4 @@
-<!-- Version: 1.31 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.32 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
 
 # Progress: Apex Coder
 
@@ -52,6 +52,7 @@
 - UnoCSS is integrated.
 - Extension activates on startup and attempts to show panel.
 - Provider-first architecture with modular design.
+- WebView UI configuration state managed by Pinia (`configStore.ts`).
 
 **What's Left (High Level):**
 - **Implemented:** Added functional logic to `apex-coder.setApiKey` command.
@@ -82,8 +83,13 @@
 - **Implemented Provider-First Architecture:**
   - Created base provider interface and abstract class
   - Implemented provider-specific files for 8 different providers
-  - Updated configuration handling to use provider-specific credentials
-  - Modified related files to work with the new architecture
+  - Updated configuration handling to use provider-specific credentials.
+  - Modified related files to work with the new architecture.
+- **Refactored WebView UI State Management:**
+  - Installed Pinia.
+  - Created `configStore.ts` to manage configuration state.
+  - Refactored `App.vue`, `SetupView.vue`, and `ChatView.vue` to use the Pinia store, removing props/emits for config state.
+  - Fixed duplicate attribute error in `ChatView.vue` after refactoring.
 - **Current Task:** Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).
 - Testing, optimization, packaging.

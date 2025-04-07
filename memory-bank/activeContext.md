@@ -1,4 +1,4 @@
-<!-- Version: 1.30 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.31 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
@@ -62,7 +62,9 @@
     *   Updated `configLoader.ts` to use the new provider architecture.
     *   Modified `AiConfig` interface to use a credentials object for provider-specific settings.
     *   Updated related files (`extension.ts`, `panelManager.ts`, tests) to work with the new architecture.
-26. **Next Step:** Refine secure API key handling. Analyze `extension.ts` for current logic and plan improvements (e.g., prompt on activation if key missing for required provider).
+26. **Completed:** Provider-first architecture implemented.
+27. **Implemented (Frontend):** Migrated WebView UI state management (for configuration) from props/emits to Pinia (`configStore.ts`). Refactored `App.vue`, `SetupView.vue`, and `ChatView.vue` to use the store. This resolves the provider selection issue reported by the user.
+28. **Next Step:** Refine secure API key handling. Analyze `extension.ts` for current logic and plan improvements (e.g., prompt on activation if key missing for required provider).
 
 **Decisions Made:**
 - Project Name: Apex Coder
@@ -72,6 +74,7 @@
 - UI Styling: **UnoCSS** (replacing previous manual CSS).
 - Activation: Activate on command and **on startup**, automatically show panel.
 - **Provider Architecture:** Provider-first design with separate files for each provider.
+- **State Management (WebView):** Using Pinia for managing configuration state (`configStore.ts`).
 
 **Open Questions/Risks:**
 - Performance of Vercel AI SDK within Extension Host.

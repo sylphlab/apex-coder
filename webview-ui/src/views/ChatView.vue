@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import { ref, defineProps, defineEmits, nextTick, watch, onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useConfigStore } from '../stores/configStore';
 import { gsap } from 'gsap';
 
 // Define props received from App.vue
 const props = defineProps<{
-  chatMessages: Array<any>;
+  chatMessages: Array<any>; // Keep chat related props
   currentInput: string;
   isLoading: boolean;
-  isModelInitialized: boolean;
-  configuredProvider: string | null;
-  configuredModelId: string | null;
   thinkingStepText: string | null;
+  // Removed config-related props: isModelInitialized, configuredProvider, configuredModelId
 }>();
+
+// Use the config store to get config state
+const configStore = useConfigStore();
+const {
+  isModelInitialized,
+  configuredProvider,
+  configuredModelId
+} = storeToRefs(configStore);
 
 // Define emits to send updates back to App.vue
 const emit = defineEmits([
@@ -130,7 +138,7 @@ const handleBlur = () => {
         <div class="flex items-center">
           <span class="text-xs mr-2">Provider:</span>
           <span class="px-2.5 py-1 bg-white rounded-lg text-xs font-medium shadow-nordic-sm">
-            {{ props.configuredProvider || 'None' }}
+            {{ configuredProvider || 'None' }} <!-- Use store state -->
           </span>
         </div>
         
@@ -138,7 +146,7 @@ const handleBlur = () => {
         <div class="flex items-center">
           <span class="text-xs mr-2">Model:</span>
           <span class="px-2.5 py-1 bg-white rounded-lg text-xs font-medium shadow-nordic-sm">
-            {{ props.configuredModelId || 'default' }}
+            {{ configuredModelId || 'default' }} <!-- Use store state -->
           </span>
         </div>
         
@@ -147,13 +155,13 @@ const handleBlur = () => {
           <span class="text-xs mr-2">Status:</span>
           <span
             class="flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
-            :class="props.isModelInitialized ? 'bg-nordic-success bg-opacity-20 text-nordic-success' : 'bg-nordic-error bg-opacity-20 text-nordic-error'"
+            :class="isModelInitialized ? 'bg-nordic-success bg-opacity-20 text-nordic-success' : 'bg-nordic-error bg-opacity-20 text-nordic-error'" <!-- Use store state -->
           >
             <span
               class="inline-block w-2 h-2 rounded-full mr-1.5"
-              :class="props.isModelInitialized ? 'bg-nordic-success' : 'bg-nordic-error'"
+              :class="isModelInitialized ? 'bg-nordic-success' : 'bg-nordic-error'" <!-- Use store state -->
             ></span>
-            {{ props.isModelInitialized ? 'Ready' : 'Not Ready' }}
+            {{ isModelInitialized ? 'Ready' : 'Not Ready' }} <!-- Use store state -->
           </span>
         </div>
       </div>
@@ -285,14 +293,15 @@ const handleBlur = () => {
             @keydown="handleKeydown"
             @focus="handleFocus"
             @blur="handleBlur"
-            :disabled="props.isLoading || !props.isModelInitialized"
+            :disabled="props.isLoading || !isModelInitialized" <!-- Use store state -->
             class="w-full py-2.5 px-3 resize-none min-h-[44px] max-h-[150px] overflow-y-auto text-sm transition-all duration-200 focus:outline-none bg-transparent rounded-lg custom-scrollbar"
-            :class="{ 'opacity-60 cursor-not-allowed': props.isLoading || !props.isModelInitialized }"
+            :class="{ 'opacity-60 cursor-not-allowed': props.isLoading || !isModelInitialized }" <!-- Use store state -->
           ></textarea>
           
           <!-- Disabled state overlay -->
+          <!-- Disabled state overlay (uses store state) -->
           <div
-            v-if="!props.isModelInitialized"
+            v-if="!isModelInitialized"
             class="absolute inset-0 flex items-center justify-center rounded-lg"
           >
             <div class="px-3 py-1 bg-nordic-error bg-opacity-10 text-nordic-error rounded-md text-xs font-medium">
@@ -305,12 +314,12 @@ const handleBlur = () => {
         <!-- Send button -->
         <button
           @click="handleSend"
-          :disabled="props.isLoading || !props.currentInput.trim() || !props.isModelInitialized"
+          :disabled="props.isLoading || !props.currentInput.trim() || !isModelInitialized" <!-- Use store state -->
           class="flex items-center justify-center h-10 w-10 rounded-lg transition-all duration-200"
           :class="{
-            'bg-nordic-primary text-white': !(props.isLoading || !props.currentInput.trim() || !props.isModelInitialized),
-            'bg-nordic-bg-light text-nordic-text-muted': props.isLoading || !props.currentInput.trim() || !props.isModelInitialized,
-            'hover:bg-opacity-90': !(props.isLoading || !props.currentInput.trim() || !props.isModelInitialized)
+            'bg-nordic-primary text-white': !(props.isLoading || !props.currentInput.trim() || !isModelInitialized), <!-- Use store state -->
+            'bg-nordic-bg-light text-nordic-text-muted': props.isLoading || !props.currentInput.trim() || !isModelInitialized, <!-- Use store state -->
+            'hover:bg-opacity-90': !(props.isLoading || !props.currentInput.trim() || !isModelInitialized) <!-- Use store state -->
           }"
         >
           <template v-if="props.isLoading">
@@ -329,8 +338,8 @@ const handleBlur = () => {
       
       <!-- Text counter and hints -->
       <div class="flex justify-between items-center text-xs mt-2 px-2 text-nordic-text-muted">
-        <div>
-          <span v-if="!props.isModelInitialized" class="flex items-center">
+        <div class="min-h-[1.2em]"> <!-- Add min-height to prevent layout shift -->
+          <span v-if="!isModelInitialized" class="flex items-center"> <!-- Use store state -->
             <span class="inline-block w-1.5 h-1.5 rounded-full bg-nordic-error mr-1.5"></span>
             Connect model to send messages
           </span>

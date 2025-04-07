@@ -1,66 +1,34 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue';
-import { useRouter } from 'vue-router'; // Import useRouter
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'; // Removed watch
+import { useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia'; // Import storeToRefs
+import { useConfigStore } from './stores/configStore'; // Import the store
 import { vscode } from './vscode';
-import { ProviderService } from './services/providerService';
+// Removed ProviderService import as it's used in the store now
 // Removed import './app.css'; as UnoCSS handles styles now
-// --- Configuration State ---
-const providerSet = ref<boolean>(false);
-const apiKeySet = ref<boolean>(false);
-const isModelInitialized = ref<boolean>(false);
-const configuredProvider = ref<string | null>(null);
-const configuredModelId = ref<string | null>(null);
-const configError = ref<string | null>(null);
+// --- Use Pinia Store for Configuration ---
+const configStore = useConfigStore();
+// Use storeToRefs to keep reactivity for state properties used in the template or computed properties
+const {
+  providerSet,
+  apiKeySet,
+  isModelInitialized,
+  configuredProvider,
+  configuredModelId,
+  // configError, // We'll use the store's error directly
+  // setupProvider, // Use store state directly
+  // setupModelId,
+  // setupApiKey,
+  // setupBaseUrl,
+  // setupCustomModelId,
+  // providers, // Use store state directly
+  // models, // Use store state directly
+  isConfigComplete // Use store computed directly
+} = storeToRefs(configStore);
 
-// --- State passed down to views ---
-// Setup Form State
-const setupProvider = ref<string>('');
-const setupModelId = ref<string>('');
-const setupApiKey = ref<string>('');
-const setupBaseUrl = ref<string>('');
-const setupCustomModelId = ref<string>('');
-
-// Provider & Model state
-const providers = ref<any[]>([]);
-const models = ref<any[]>([]);
-// Load providers on mount
-onMounted(async () => {
-  try {
-    providers.value = await ProviderService.getAllProviders();
-  } catch (error) {
-    console.error('Error loading providers in App.vue:', error);
-  }
-});
-
-// Computed properties derived from setup state (needed by both App and SetupView)
-const selectedProviderDetails = computed(() => {
-  return providers.value.find(p => p.id === setupProvider.value);
-});
-
-// Watch for provider changes to load models
-watch(setupProvider, async (newProvider) => {
-  // Reset model selection
-  setupModelId.value = '';
-  setupCustomModelId.value = '';
-  
-  if (!newProvider) {
-    models.value = [];
-    return;
-  }
-  
-  try {
-    models.value = await ProviderService.getModelsForProvider(newProvider);
-  } catch (error) {
-    console.error(`Error loading models for provider ${newProvider}:`, error);
-    models.value = [];
-  }
-});
-
-const availableModels = computed(() => {
-  return models.value;
-});
-
+// --- Chat State (remains in App.vue for now) ---
 // --- Chat State (remains in App.vue as it's core application state) ---
+// Note: Provider/Model fetching and computed properties are now handled within the configStore
 interface CoreMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -72,20 +40,7 @@ const currentInput = ref<string>('');
 const isLoading = ref<boolean>(false);
 const thinkingStepText = ref<string | null>(null); // State for thinking step
 
-const isConfigComplete = computed(() => {
-  if (!providerSet.value) return false; // Must have a provider selected
-
-  const providerDetails = selectedProviderDetails.value; // Use the existing computed property
-
-  // If the selected provider requires an API key, check if it's set
-  if (providerDetails?.requiresApiKey) {
-    return apiKeySet.value;
-  }
-
-  // If the provider does NOT require an API key (e.g., Ollama),
-  // then configuration is complete just by having the provider set.
-  return true;
-});
+// isConfigComplete is now imported from the store using storeToRefs
 
 let removeListener: (() => void) | null = null;
 const router = useRouter(); // Get router instance
@@ -95,42 +50,8 @@ const getConfigStatus = () => {
   vscode.postMessage({ command: 'getConfigStatus' });
 };
 
-const saveConfiguration = () => {
-  configError.value = null;
-  const provider = setupProvider.value;
-  // Use custom model ID if entered and provider allows it, otherwise use dropdown selection
-  const modelId = selectedProviderDetails.value?.allowCustomModel && setupCustomModelId.value.trim()
-                  ? setupCustomModelId.value.trim()
-                  : setupModelId.value;
-
-  const payload = {
-    provider: provider,
-    modelId: modelId || null, // Send null if empty/not selected
-    apiKey: setupApiKey.value.trim(),
-    baseUrl: setupBaseUrl.value.trim() || null,
-  };
-
-  if (!payload.provider) {
-    configError.value = 'Please select a Provider.';
-    return;
-  }
-  // Model ID is often optional (defaults on backend/provider side), so don't validate here strictly unless needed.
-  // API key validation (only if provider requires it)
-  if (selectedProviderDetails.value?.requiresApiKey && !payload.apiKey) {
-     configError.value = `API Key is required for ${selectedProviderDetails.value.name}.`;
-     return;
-   }
-   // Base URL validation (only if provider requires it - primarily Ollama)
-   if (selectedProviderDetails.value?.requiresBaseUrl && !payload.baseUrl) {
-       // Make Base URL optional for Ollama for now, user might run on default localhost
-       // configError.value = `Base URL is required for ${selectedProviderDetails.value.name}.`;
-       // return;
-   }
-
-
-  console.log('Sending saveConfiguration message:', payload);
-  vscode.postMessage({ command: 'saveConfiguration', payload });
-};
+// saveConfiguration is now an action in the store
+// const saveConfiguration = () => { ... }; // Removed local function
 
 const sendChatMessage = async () => {
   console.log('[sendChatMessage] Attempting to send:', {
@@ -177,32 +98,16 @@ const handleExtensionMessage = (event: MessageEvent<any>) => {
       thinkingStepText.value = message.payload?.text ?? null;
       isLoading.value = true; // Ensure loading is true when thinking starts
       break;
-    case 'configStatus':
-    case 'configSaved': // Treat saved same as status update for UI
+    case 'configStatus': // Received from extension
+    case 'configSaved': // Received from extension after successful save
       console.log('Handling configStatus/configSaved:', message.payload);
-      providerSet.value = message.payload?.providerSet ?? false;
-      // API key logic remains similar, backend determines if it's truly needed (like for Ollama)
-      apiKeySet.value = providerSet.value && (message.payload?.apiKeySet ?? false);
-      isModelInitialized.value = message.payload?.isModelInitialized ?? false;
-      configuredProvider.value = message.payload?.provider ?? null;
-      configuredModelId.value = message.payload?.modelId ?? null;
-
-      if (message.command === 'configSaved' && isConfigComplete.value) {
-          // Don't clear setup form immediately, user might want to see what was saved
-          // setupProvider.value = '';
-          // setupModelId.value = '';
-          // setupApiKey.value = '';
-          // setupBaseUrl.value = '';
-          configError.value = null; // Clear error on successful save
-      }
-      if (message.command === 'configSaved' && !isModelInitialized.value) {
-          configError.value = `Configuration saved, but failed to initialize model for ${configuredProvider.value || 'selected provider'}. Check model ID, API key, or connection.`;
-      }
+      // Update the store state
+      configStore.updateConfigStatus({ ...message.payload, commandSource: message.command });
       break;
-case 'configError':
-  console.error('Configuration error from extension:', message.payload);
-  configError.value = message.payload || 'Unknown error saving configuration.';
-  break;
+    case 'configError': // Received from extension on save failure
+      console.error('Configuration error from extension:', message.payload);
+      configStore.setConfigError(message.payload || 'Unknown error saving configuration.');
+      break; // Ensure break statement is present
 
 case 'toolResult': // Handle message indicating tool execution result
 console.log('Tool execution result:', message.payload);
@@ -282,18 +187,10 @@ break;
 
 // Removed chatContainerRef and scrollToBottom function, as scrolling is handled within ChatView
 
-onMounted(async () => { // Make async to await initial navigation
+onMounted(() => {
   removeListener = vscode.onMessage(handleExtensionMessage);
-  
-  // Load providers
-  try {
-    providers.value = await ProviderService.getAllProviders();
-  } catch (error) {
-    console.error('Error loading providers in App.vue:', error);
-  }
-  
-  // Request status first, then navigate based on the initial response
-  // The handleExtensionMessage function will trigger the initial navigation
+  // Request initial config status when component mounts
+  // The store handles provider fetching internally on initialization
   getConfigStatus();
 });
 
@@ -313,21 +210,10 @@ onUnmounted(() => {
               font-family: var(--vscode-font-family, sans-serif);">
     
     <!-- Router View will render Welcome, Setup, or Chat views -->
+    <!-- Router View will render Welcome, Setup, or Chat views -->
+    <!-- Config-related props/emits are removed as views will use the store -->
     <router-view
-      :setup-provider="setupProvider"
-      :setup-model-id="setupModelId"
-      :setup-api-key="setupApiKey"
-      :setup-base-url="setupBaseUrl"
-      :setup-custom-model-id="setupCustomModelId"
-      :config-error="configError"
-      :selected-provider-details="selectedProviderDetails"
-      :available-models="availableModels"
-      @update:setupProvider="setupProvider = $event"
-      @update:setupModelId="setupModelId = $event"
-      @update:setupApiKey="setupApiKey = $event"
-      @update:setupBaseUrl="setupBaseUrl = $event"
-      @update:setupCustomModelId="setupCustomModelId = $event"
-      @save-configuration="saveConfiguration"
+      @save-configuration="configStore.saveConfiguration" <!-- Call store action directly -->
 
       :chat-messages="chatMessages"
       :current-input="currentInput"
@@ -338,8 +224,8 @@ onUnmounted(() => {
       :thinking-step-text="thinkingStepText"
       @update:currentInput="currentInput = $event"
       @send-chat-message="sendChatMessage"
-      @get-config-status="getConfigStatus"
-      @change-settings="providerSet = false; apiKeySet = false; isModelInitialized = false; router.push('/setup')"
+      @get-config-status="getConfigStatus" <!-- Keep this for manual refresh if needed -->
+      @change-settings="configStore.$reset(); router.push('/setup')" <!-- Reset store state and navigate -->
     ></router-view>
   </div>
 </template>

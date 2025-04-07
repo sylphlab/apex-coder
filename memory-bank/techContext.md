@@ -1,10 +1,10 @@
-<!-- Version: 1.3 | Last Updated: 2025-07-04 -->
+<!-- Version: 1.4 | Last Updated: 2025-07-08 -->
 
 # Technical Context: Apex Coder
 
 **Core Technologies:**
 - **VSCode Extension:** Node.js / TypeScript
-- **Frontend (WebView):** Vue.js 3 (Composition API recommended), TypeScript, Vite (recommended for build)
+- **Frontend (WebView):** Vue.js 3 (Composition API recommended), TypeScript, Vite (recommended for build), Pinia (for state management)
 - **UI Styling:** UnoCSS (utility-first CSS framework)
 - **AI Backend Integration:** Vercel AI SDK (using `ai` core package and provider packages like `@ai-sdk/google`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, community packages like `@ai-sdk/ollama` etc.) - Integrated directly into Extension Host.
 - **AI Models:** Configurable via VSCode settings, leveraging Vercel AI SDK's support for numerous providers (Google, OpenAI, Anthropic, Ollama, Vertex, Mistral, Cohere, etc.).
@@ -32,6 +32,7 @@
 - Vercel AI SDK (`ai`, `@ai-sdk/...`)
 - Zod (still useful for defining structured data, e.g., for `generateObject`)
 - Vue.js
+- Pinia
 - UnoCSS
 
 **Constraints & Considerations:**

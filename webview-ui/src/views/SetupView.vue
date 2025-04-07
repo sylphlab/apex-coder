@@ -1,88 +1,36 @@
 <script setup lang="ts">
-import { computed, defineProps, defineEmits, ref, onMounted, watch } from 'vue';
-import { ProviderService, type ProviderDetails, type ModelInfo } from '../services/providerService';
+import { computed } from 'vue'; // Removed defineProps, defineEmits, ref, onMounted, watch
+import { storeToRefs } from 'pinia';
+import { useConfigStore } from '../stores/configStore';
+// Removed ProviderService import, store handles it
+// Use the config store
+const configStore = useConfigStore();
 
-// Define props received from App.vue
-const props = defineProps<{
-  providerOptions: Array<any>;
-  setupProvider: string;
-  setupModelId: string;
-  setupApiKey: string;
-  setupBaseUrl: string;
-  setupCustomModelId: string;
-  configError: string | null;
-  selectedProviderDetails: Record<string, any> | undefined;
-  availableModels: Array<any>;
-}>();
+// Get reactive state and computed properties from the store
+const {
+  providers,
+  models,
+  isLoadingProviders,
+  isLoadingModels,
+  loadingError, // Can display this if needed
+  configError,
+  setupProvider,
+  setupModelId,
+  setupApiKey,
+  setupBaseUrl,
+  setupCustomModelId,
+  selectedProviderDetails // Use the computed property from the store
+} = storeToRefs(configStore);
 
-// Define emits to send updates back to App.vue
-const emit = defineEmits([
-  'update:setupProvider',
-  'update:setupModelId',
-  'update:setupApiKey',
-  'update:setupBaseUrl',
-  'update:setupCustomModelId',
-  'saveConfiguration',
-]);
+// Get the save action from the store
+const { saveConfiguration } = configStore;
 
-// Local state for providers and models
-const providers = ref<ProviderDetails[]>([]);
-const models = ref<ModelInfo[]>([]);
-const isLoadingProviders = ref(false);
-const isLoadingModels = ref(false);
-const loadingError = ref<string | null>(null);
+// Props and emits are no longer needed
 
-// Get the query parameter for provider if available
-const urlParams = new URLSearchParams(window.location.search);
-const providerFromUrl = urlParams.get('provider');
-
-// Load providers on mount
-onMounted(async () => {
-  try {
-    isLoadingProviders.value = true;
-    providers.value = await ProviderService.getAllProviders();
-    isLoadingProviders.value = false;
-    
-    // If provider is specified in URL, select it
-    if (providerFromUrl) {
-      emit('update:setupProvider', providerFromUrl);
-    }
-  } catch (error) {
-    isLoadingProviders.value = false;
-    loadingError.value = error instanceof Error ? error.message : 'Failed to load providers';
-    console.error('Error loading providers:', error);
-  }
-});
-
-// Watch for provider changes to load models
-watch(() => props.setupProvider, async (newProvider) => {
-  if (!newProvider) {
-    models.value = [];
-    return;
-  }
-  
-  try {
-    isLoadingModels.value = true;
-    models.value = await ProviderService.getModelsForProvider(newProvider);
-    isLoadingModels.value = false;
-    
-    // If models are loaded and there's at least one, select the first one
-    if (models.value.length > 0 && !props.setupModelId) {
-      emit('update:setupModelId', models.value[0].id);
-    }
-  } catch (error) {
-    isLoadingModels.value = false;
-    console.error(`Error loading models for provider ${newProvider}:`, error);
-    // Don't set error here to avoid blocking the UI
-  }
-});
-
-// Get the selected provider details
-const selectedProvider = computed(() => {
-  return providers.value.find(p => p.id === props.setupProvider);
-});
-
-// Removed unused formattedModels computed property
+// Local state, onMounted, watch, and local computed properties are removed
+// as this logic is now handled within the configStore.
+// The store fetches providers on init and watches setupProvider internally.
+// selectedProviderDetails is now directly from the store.
 </script>
 <template>
   <div class="flex flex-col items-center justify-center h-full px-6 py-8 animate-nordic-fade-in">
@@ -107,8 +55,8 @@ const selectedProvider = computed(() => {
           <select
             v-else
             id="provider-select"
-            :value="props.setupProvider"
-            @input="emit('update:setupProvider', ($event.target as HTMLSelectElement).value)"
+            :value="setupProvider"
+            @input="setupProvider = ($event.target as HTMLSelectElement).value"
             class="input-nordic"
           >
             <option value="">-- Select Provider --</option>
@@ -118,8 +66,8 @@ const selectedProvider = computed(() => {
           </select>
         </div>
 
-        <!-- Model Dropdown (conditional) -->
-        <div class="mb-5" v-if="props.setupProvider">
+        <!-- Model Dropdown (conditional on provider selection) -->
+        <div class="mb-5" v-if="setupProvider">
           <label for="modelId-select" class="block mb-2 text-sm font-medium text-nordic-text-primary">Model</label>
           <div v-if="isLoadingModels" class="flex items-center space-x-2 text-nordic-text-muted text-sm py-2">
             <div class="animate-spin h-4 w-4 border-2 border-nordic-primary border-t-transparent rounded-full"></div>
@@ -128,8 +76,8 @@ const selectedProvider = computed(() => {
           <select
             v-else-if="models.length > 0"
             id="modelId-select"
-            :value="props.setupModelId"
-            @input="emit('update:setupModelId', ($event.target as HTMLSelectElement).value)"
+            :value="setupModelId"
+            @input="setupModelId = ($event.target as HTMLSelectElement).value"
             class="input-nordic"
           >
             <option value="">-- Select Model --</option>
@@ -142,63 +90,63 @@ const selectedProvider = computed(() => {
           </p>
         </div>
 
-        <!-- Custom Model ID Input (conditional, e.g., for Ollama) -->
-        <div class="mb-5" v-if="selectedProvider?.allowCustomModel">
+        <!-- Custom Model ID Input (conditional based on provider details from store) -->
+        <div class="mb-5" v-if="selectedProviderDetails?.allowCustomModel">
           <label for="customModelId" class="block mb-2 text-sm font-medium text-nordic-text-primary">
             Custom Model ID <span class="text-nordic-text-muted">(if not in list)</span>
           </label>
           <input
             type="text"
             id="customModelId"
-            :value="props.setupCustomModelId"
-            @input="emit('update:setupCustomModelId', ($event.target as HTMLInputElement).value)"
+            :value="setupCustomModelId"
+            @input="setupCustomModelId = ($event.target as HTMLInputElement).value"
             placeholder="e.g., my-local-model:latest"
             class="input-nordic"
           >
         </div>
 
-        <!-- API Key Input (conditional) -->
-        <div class="mb-5" v-if="selectedProvider?.requiresApiKey">
+        <!-- API Key Input (conditional based on provider details from store) -->
+        <div class="mb-5" v-if="selectedProviderDetails?.requiresApiKey">
           <label for="apiKey" class="block mb-2 text-sm font-medium text-nordic-text-primary">API Key</label>
           <input
             type="password"
             id="apiKey"
-            :value="props.setupApiKey"
-            @input="emit('update:setupApiKey', ($event.target as HTMLInputElement).value)"
+            :value="setupApiKey"
+            @input="setupApiKey = ($event.target as HTMLInputElement).value"
             placeholder="Enter your API Key"
             class="input-nordic"
           >
         </div>
 
-        <!-- Base URL Input (conditional) -->
-        <div class="mb-5" v-if="selectedProvider?.requiresBaseUrl">
+        <!-- Base URL Input (conditional based on provider details from store) -->
+        <div class="mb-5" v-if="selectedProviderDetails?.requiresBaseUrl">
           <label for="baseUrl" class="block mb-2 text-sm font-medium text-nordic-text-primary">
             Base URL <span class="text-nordic-text-muted">(Optional for Ollama)</span>
           </label>
           <input
             type="text"
             id="baseUrl"
-            :value="props.setupBaseUrl"
-            @input="emit('update:setupBaseUrl', ($event.target as HTMLInputElement).value)"
+            :value="setupBaseUrl"
+            @input="setupBaseUrl = ($event.target as HTMLInputElement).value"
             placeholder="e.g., http://localhost:11434"
             class="input-nordic"
           >
         </div>
 
-        <!-- Error Message -->
-        <div v-if="props.configError" class="mb-5 p-4 rounded-lg text-sm bg-nordic-error bg-opacity-10 text-nordic-error border border-nordic-error border-opacity-20">
+        <!-- Error Message (from store) -->
+        <div v-if="configError" class="mb-5 p-4 rounded-lg text-sm bg-nordic-error bg-opacity-10 text-nordic-error border border-nordic-error border-opacity-20">
           <div class="flex items-start">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
             </svg>
-            <span>{{ props.configError }}</span>
+            <span>{{ configError }}</span>
           </div>
         </div>
 
         <!-- Action Buttons -->
         <div class="flex flex-col space-y-3">
           <button
-            @click="emit('saveConfiguration')"
+            @click="saveConfiguration"
             class="btn-nordic-primary"
           >
             Save Configuration
