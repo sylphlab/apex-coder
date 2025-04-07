@@ -31,6 +31,8 @@
 - **Refactored:** Modified `extension.ts` message handling to support Webview-driven configuration (`configStatus`, `saveConfiguration`). Removed auto-init on activation.
 - **Fix:** Resolved Webview `net::ERR_ACCESS_DENIED` by correcting asset path regex in `getWebviewContent` and ensuring full VS Code restart. <!-- Updated Fix -->
 - **Implemented (Frontend):** Modified `App.vue` to handle Webview-driven setup flow (conditional rendering, setup form, message handling).
+- **Implemented (Frontend):** Changed Provider/Model inputs to dropdowns in `App.vue` setup form.
+- **Refactored:** Added development mode flag (`IS_DEVELOPMENT`) in `extension.ts` to enable loading Webview from Vite dev server for hot-reloading.
 - **Ready for Testing:** Test Vercel AI SDK integration via the complete Webview setup and chat flow. <!-- Updated Status -->
 - Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).
