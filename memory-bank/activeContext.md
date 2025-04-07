@@ -1,4 +1,4 @@
-<!-- Version: 1.28 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.29 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
@@ -55,7 +55,8 @@
 21. **Fix:** Corrected Vue template syntax errors in `ChatView.vue` caused by incorrectly placed comments during `apply_diff`.
 22. **Committed:** Committed UI styling changes and Memory Bank updates (Commit `6707987`).
 23. **UI Theme Integration:** Refined theme variable usage in `ChatView.vue` for better consistency (status bar border, user message colors).
-24. **Next Step:** Commit the theme integration refinements and Memory Bank updates.
+24. **Committed:** Committed theme integration refinements and Memory Bank updates (Commit `a343f92`).
+25. **Next Step:** Begin refining secure API key handling. Analyze `extension.ts` for current logic and plan improvements (e.g., prompt on activation if key missing for required provider).
 **Decisions Made:**
 - Project Name: Apex Coder
 - Core Tech Stack: VSCode Ext (TS), Vue.js (WebView), **Vercel AI SDK (Integrated)**

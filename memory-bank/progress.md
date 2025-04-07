@@ -1,4 +1,4 @@
-<!-- Version: 1.27 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
+<!-- Version: 1.28 | Last Updated: 2025-07-04 --> <!-- Updated Version -->
 
 # Progress: Apex Coder
 
@@ -62,7 +62,8 @@
 - **Fixed:** UnoCSS styles restored in browser and WebView.
 - **Committed:** Committed UI styling changes (Commit `6707987`).
 - **Refined Theme Integration:** Adjusted theme variable usage in `ChatView.vue` for better consistency.
-- **Current Task:** Commit theme integration refinements and Memory Bank updates.
+- **Committed:** Committed theme integration refinements (Commit `a343f92`).
+- **Current Task:** Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Refine secure API key handling (e.g., prompt user on activation if key missing).
 - Implement further core AI features (tool use, object generation, etc.).
 - Add support for more Vercel AI SDK providers in `configLoader.ts`.

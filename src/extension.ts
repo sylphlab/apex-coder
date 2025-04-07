@@ -16,6 +16,34 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Initialize the Panel Manager
 	panelManager = new PanelManager(context);
 
+	// --- Check for missing API Key on activation ---
+	try {
+		const config = vscode.workspace.getConfiguration('apexCoder.ai');
+		const provider = config.get<string>('provider');
+		if (provider && provider.toLowerCase() !== 'ollama') {
+			const providerLower = provider.toLowerCase();
+			const secretKey = `${SECRET_API_KEY_PREFIX}${providerLower}`;
+			const apiKey = await context.secrets.get(secretKey);
+			if (!apiKey) {
+				logger.warn(`API Key for provider '${provider}' not found in secrets. Prompting user.`);
+				// Don't await this, let it run in the background while panel loads
+				vscode.commands.executeCommand(COMMAND_SET_API_KEY);
+				// Optionally show a non-blocking message
+				// vscode.window.showInformationMessage(`API Key for ${provider} is missing. Please set it up.`);
+			} else {
+				logger.info(`API Key found for provider '${provider}'.`);
+			}
+		} else if (!provider) {
+	           logger.info('No provider configured yet.');
+	       } else {
+			logger.info(`Provider '${provider}' does not require an API key check on activation.`);
+		}
+	} catch (error) {
+		logger.error('Error checking API key on activation:', error);
+		// Don't block activation for this check
+	}
+	// --- End API Key Check ---
+
 	// Register command to show the panel
 	const showPanelDisposable = vscode.commands.registerCommand(COMMAND_SHOW_PANEL, () => {
 		logger.info(`Command executed: ${COMMAND_SHOW_PANEL}`);
@@ -26,52 +54,150 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const setApiKeyDisposable = vscode.commands.registerCommand(COMMAND_SET_API_KEY, async () => {
 		logger.info(`Command executed: ${COMMAND_SET_API_KEY}`);
 		try {
-			const provider = await vscode.window.showInputBox({
-				prompt: 'Enter AI Provider name (e.g., google, openai, anthropic, ollama)',
-				placeHolder: 'openai',
+			// Show provider selection dropdown
+			const provider = await vscode.window.showQuickPick([
+				{ label: 'Google AI (Gemini)', detail: 'Uses Gemini models', value: 'googleai' },
+				{ label: 'OpenAI (GPT)', detail: 'Uses GPT models', value: 'openai' },
+				{ label: 'Anthropic (Claude)', detail: 'Uses Claude models', value: 'anthropic' },
+				{ label: 'Deepseek', detail: 'Uses Deepseek models', value: 'deepseek' },
+				{ label: 'Ollama (Local)', detail: 'No API key needed', value: 'ollama' },
+			], {
+				placeHolder: 'Select AI Provider',
 				ignoreFocusOut: true,
 			});
 
 			if (!provider) {
-				vscode.window.showWarningMessage('API Key setup cancelled: Provider name not entered.');
+				vscode.window.showWarningMessage('API Key setup cancelled: No provider selected.');
 				return;
 			}
 
-			const providerLower = provider.toLowerCase();
+			const providerLower = provider.value.toLowerCase();
+
+			// Show model selection dropdown if not Ollama
+			if (providerLower !== 'ollama') {
+				const models = {
+					googleai: [
+						{ label: 'Gemini 1.5 Flash (Default)', value: 'gemini-1.5-flash', detail: 'Fastest model for most tasks' },
+						{ label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro', detail: 'Most capable model for complex tasks' },
+						{ label: 'Gemini 1.0 Pro', value: 'gemini-pro', detail: 'General purpose model' }
+					],
+					openai: [
+						{ label: 'GPT-4o (Default)', value: 'gpt-4o', detail: 'Fastest and most capable model' },
+						{ label: 'GPT-4 Turbo', value: 'gpt-4-turbo', detail: 'Improved version of GPT-4' },
+						{ label: 'GPT-4', value: 'gpt-4', detail: 'Most capable model' },
+						{ label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo', detail: 'Fast and cost-effective' }
+					],
+					anthropic: [
+						{ label: 'Claude 3.5 Sonnet (Default)', value: 'claude-3-5-sonnet', detail: 'Balanced intelligence and speed' },
+						{ label: 'Claude 3 Opus', value: 'claude-3-opus-20240229', detail: 'Most powerful model' },
+						{ label: 'Claude 3 Sonnet', value: 'claude-3-sonnet-20240229', detail: 'Balanced performance' },
+						{ label: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307', detail: 'Fastest and most compact' }
+					],
+					deepseek: [
+						{ label: 'Deepseek Chat (Default)', value: 'deepseek-chat', detail: 'General purpose model' }
+					]
+				};
+
+				const model = await vscode.window.showQuickPick(models[providerLower as keyof typeof models], {
+					placeHolder: `Select ${provider.label} Model`,
+					ignoreFocusOut: true
+				});
+
+				if (!model) {
+					vscode.window.showWarningMessage('Model selection cancelled');
+					return;
+				}
+
+				// Update model configuration
+				const config = vscode.workspace.getConfiguration('apexCoder.ai');
+				await config.update('model', model.value, vscode.ConfigurationTarget.Global);
+			}
+			
 			// No API key needed for Ollama
 			if (providerLower === 'ollama') {
 				vscode.window.showInformationMessage('Ollama provider selected. Ensure Ollama service is running. No API key needed.');
-				// Optionally trigger a config update/check here if needed
 				const config = vscode.workspace.getConfiguration('apexCoder.ai');
-				await config.update('provider', provider, vscode.ConfigurationTarget.Global);
-				// Clear potentially stored key for ollama
+				await config.update('provider', provider.value, vscode.ConfigurationTarget.Global);
 				await context.secrets.delete(`${SECRET_API_KEY_PREFIX}${providerLower}`);
-				panelManager?.showPanel(); // Re-show panel to potentially trigger re-init
+				panelManager?.showPanel();
 				return;
 			}
 
+			// Get API key with validation
 			const apiKey = await vscode.window.showInputBox({
-				prompt: `Enter API Key for ${provider}`,
+				prompt: `Enter API Key for ${provider.label}`,
 				password: true,
 				ignoreFocusOut: true,
+				validateInput: (value) => {
+					if (!value) {
+						return 'API Key is required';
+					}
+					// Basic format validation based on provider
+					switch(providerLower) {
+						case 'openai':
+							if (!value.startsWith('sk-')) {
+								return 'OpenAI keys typically start with "sk-"';
+							}
+							break;
+						case 'anthropic':
+							if (!value.startsWith('sk-ant-')) {
+								return 'Anthropic keys typically start with "sk-ant-"';
+							}
+							break;
+						case 'googleai':
+							if (value.length < 30) {
+								return 'Google AI keys are typically longer than 30 characters';
+							}
+							break;
+					}
+					return null;
+				}
 			});
 
 			if (!apiKey) {
-				vscode.window.showWarningMessage(`API Key setup cancelled: API Key for ${provider} not entered.`);
+				vscode.window.showWarningMessage(`API Key setup cancelled: API Key for ${provider.label} not entered.`);
 				return;
 			}
 
+			// Store the key
 			const secretKey = `${SECRET_API_KEY_PREFIX}${providerLower}`;
 			await context.secrets.store(secretKey, apiKey);
-			vscode.window.showInformationMessage(`API Key for ${provider} stored successfully.`);
-			logger.info(`API Key stored for provider: ${provider}`);
+			vscode.window.showInformationMessage(`API Key for ${provider.label} stored successfully.`);
+			logger.info(`API Key stored for provider: ${provider.value}`);
 
-			// Optionally update provider setting if it changed or wasn't set
+			// Update provider setting if changed
 			const config = vscode.workspace.getConfiguration('apexCoder.ai');
-			if (config.get<string>('provider') !== provider) {
-				await config.update('provider', provider, vscode.ConfigurationTarget.Global);
+			if (config.get<string>('provider') !== provider.value) {
+				await config.update('provider', provider.value, vscode.ConfigurationTarget.Global);
 			}
-			// Trigger panel show/refresh to potentially re-initialize model with new key
+
+			// Test the connection
+			const testResult = await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: `Testing ${provider.label} connection...`,
+				cancellable: false
+			}, async () => {
+				try {
+					// Import configLoader only when needed
+					const { initializeAiSdkModel } = await import('./ai-sdk/configLoader.js');
+					await initializeAiSdkModel({
+						provider: provider.value,
+						apiKey: apiKey
+					});
+					return true;
+				} catch (error) {
+					logger.error('Connection test failed:', error);
+					return false;
+				}
+			});
+
+			if (testResult) {
+				vscode.window.showInformationMessage(`Successfully connected to ${provider.label}!`);
+			} else {
+				vscode.window.showWarningMessage(`Failed to connect to ${provider.label}. The key may be invalid.`);
+			}
+
+			// Refresh panel
 			panelManager?.showPanel();
 
 		} catch (error: unknown) {

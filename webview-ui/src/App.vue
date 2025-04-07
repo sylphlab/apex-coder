@@ -21,7 +21,9 @@ const setupCustomModelId = ref<string>('');
 
 // Provider & Model Options (remains in App.vue as it's shared config data)
 const providerOptions = ref([
-  { value: '', label: '-- Select Provider --', models: [], requiresApiKey: false, requiresBaseUrl: false, allowCustomModel: false },
+  { value: '', label: '-- Select Provider --', models: [], requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false },
+  
+  // Core providers
   {
     value: 'googleai', label: 'Google AI (Gemini)',
     models: [
@@ -32,7 +34,6 @@ const providerOptions = ref([
       { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
       { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
       { value: 'models/gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro (Preview 03-25)' },
-      { value: 'models/gemini-2.5-pro-exp-03-25', label: 'Gemini 2.5 Pro (Exp 03-25)' },
     ],
     requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
   },
@@ -61,25 +62,100 @@ const providerOptions = ref([
     value: 'ollama', label: 'Ollama (Local)',
     models: [
       { value: '', label: '-- Select Common Model (or enter custom below) --' },
-      { value: 'llama3', label: 'Llama 3 (Default)' },
-      { value: 'mistral', label: 'Mistral (Default)' },
-      { value: 'codellama', label: 'Code Llama (Default)' },
+      { value: 'llama3', label: 'Llama 3' },
+      { value: 'mistral', label: 'Mistral' },
+      { value: 'codellama', label: 'Code Llama' },
+      { value: 'phi3', label: 'Phi-3' },
     ],
     requiresApiKey: false, requiresBaseUrl: true, allowCustomModel: true,
   },
   {
-    value: 'deepseek',
-    label: 'DeepSeek',
+    value: 'deepseek', label: 'DeepSeek',
     models: [
       { value: '', label: '-- Select Model --' },
       { value: 'deepseek-chat', label: 'DeepSeek Chat' },
       { value: 'deepseek-coder', label: 'DeepSeek Coder' },
-      // { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' }, // Assuming this model ID exists
-      // Add other DeepSeek models if known
     ],
-    requiresApiKey: true, // DeepSeek requires an API key
-    requiresBaseUrl: false, // Typically doesn't require a base URL unless self-hosted
-    allowCustomModel: false, // Usually specific model IDs
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
+  },
+  
+  // Cloud providers
+  {
+    value: 'vertexai', label: 'Google Vertex AI',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+      { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
+  },
+  {
+    value: 'cohere', label: 'Cohere',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'command', label: 'Command' },
+      { value: 'command-r', label: 'Command-R' },
+      { value: 'command-r-plus', label: 'Command-R+' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
+  },
+  {
+    value: 'mistral', label: 'Mistral AI',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'mistral-large-latest', label: 'Mistral Large' },
+      { value: 'mistral-medium-latest', label: 'Mistral Medium' },
+      { value: 'mistral-small-latest', label: 'Mistral Small' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
+  },
+  {
+    value: 'perplexity', label: 'Perplexity AI',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'sonar-medium-online', label: 'Sonar Medium (Online)' },
+      { value: 'sonar-small-online', label: 'Sonar Small (Online)' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
+  },
+  {
+    value: 'replicate', label: 'Replicate',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'meta/llama-3-70b-instruct', label: 'Llama 3 70B Instruct' },
+      { value: 'meta/llama-3-8b-instruct', label: 'Llama 3 8B Instruct' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: true,
+  },
+  
+  // Enterprise providers
+  {
+    value: 'aws', label: 'AWS Bedrock',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'anthropic.claude-3-sonnet-20240229-v1:0', label: 'Claude 3 Sonnet' },
+      { value: 'anthropic.claude-3-haiku-20240307-v1:0', label: 'Claude 3 Haiku' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
+  },
+  {
+    value: 'azure', label: 'Azure OpenAI',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'gpt-4', label: 'GPT-4' },
+      { value: 'gpt-35-turbo', label: 'GPT-3.5 Turbo' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: true, allowCustomModel: false,
+  },
+  {
+    value: 'groq', label: 'Groq',
+    models: [
+      { value: '', label: '-- Select Model --' },
+      { value: 'llama3-70b-8192', label: 'Llama 3 70B' },
+      { value: 'llama3-8b-8192', label: 'Llama 3 8B' },
+      { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+    ],
+    requiresApiKey: true, requiresBaseUrl: false, allowCustomModel: false,
   },
 ]);
 
@@ -335,11 +411,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- Use VS Code theme variables for better integration -->
-  <div class="h-screen flex flex-col box-border p-6" style="background-color: var(--vscode-sideBar-background, white); color: var(--vscode-foreground, black); font-family: var(--vscode-font-family, sans-serif);">
-    <h1 class="text-center mb-6 text-lg font-light" style="color: var(--vscode-foreground, black);">Apex Coder</h1>
-
-    <!-- Router View will render either SetupView or ChatView -->
+  <!-- Main container with Nordic theme -->
+  <div class="h-screen flex flex-col overflow-hidden"
+       style="background-color: var(--vscode-sideBar-background, white);
+              color: var(--vscode-foreground, black);
+              font-family: var(--vscode-font-family, sans-serif);">
+    
+    <!-- Router View will render Welcome, Setup, or Chat views -->
     <router-view
       :provider-options="providerOptions"
       :setup-provider="setupProvider"
@@ -369,6 +447,5 @@ onUnmounted(() => {
       @get-config-status="getConfigStatus"
       @change-settings="providerSet = false; apiKeySet = false; isModelInitialized = false; router.push('/setup')"
     ></router-view>
-
   </div>
 </template>

@@ -3,7 +3,7 @@ import { getWebviewContent } from './contentProvider';
 import { logger } from '../utils/logger';
 import { AiConfig, getCurrentAiConfig, getLanguageModel, initializeAiSdkModel, resetAiSdkModel } from '../ai-sdk/configLoader';
 import { streamText } from 'ai'; // Keep this import
-import { createCoreTools } from '../tools/coreTools';
+import { createAllTools } from '../tools/coreTools';
 // Corrected single import for constants
 import {
     CONFIG_NAMESPACE,
@@ -239,7 +239,7 @@ export class PanelManager {
             const streamId = payload.id || Date.now().toString(); // Use ID from payload or generate one
 
             // Create tools instance, passing the current panel for message posting
-            const tools = createCoreTools(PanelManager.currentPanel);
+            const tools = createAllTools(PanelManager.currentPanel);
 
             logger.info(`Sending to AI: ${userMessage}`);
             logger.info('Tools being passed to streamText:', Object.keys(tools));

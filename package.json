@@ -10,8 +10,6 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:apex-coder.showPanel",
-    "onCommand:apex-coder.setApiKey",
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
