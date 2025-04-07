@@ -15,49 +15,9 @@
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
-		},
-		{
-			"name": "Run Extension with Panel",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
-			],
-			"outFiles": [
-				"${workspaceFolder}/dist/**/*.js"
-			],
-			"preLaunchTask": "${defaultBuildTask}"
-		},
-		{
-			"name": "Run Vite Dev Server",
-			"type": "node-terminal",
-			"request": "launch",
-			"command": "pnpm --filter webview-ui dev",
-			"cwd": "${workspaceFolder}",
-			"serverReadyAction": {
-				"pattern": "Local:\\s+(https?://localhost:\\d+)",
-				"uriFormat": "%s",
-				"action": "debugWithChrome"
-			}
+			"preLaunchTask": "${defaultBuildTask}",
+			"postDebugTask": "Run: Show Panel"
 		}
 	],
-	"compounds": [
-		{
-			"name": "Extension + Vite Dev",
-			"configurations": [
-				"Run Extension",
-				"Run Vite Dev Server"
-			],
-			"stopAll": true
-		},
-		{
-			"name": "Full Development Environment",
-			"configurations": [
-				"Run Extension with Panel",
-				"Run Vite Dev Server"
-			],
-			"stopAll": true
-		}
-	]
+	"compounds": []
 }

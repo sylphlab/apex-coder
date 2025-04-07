@@ -74,7 +74,8 @@
 		    "presentation": {
 		        "reveal": "silent",
 		        "clear": true
-		    }
+		    },
+			"dependsOn": ["Start Vite Dev Server"]
 		},
 		{
 			"label": "Run: Show Panel",
