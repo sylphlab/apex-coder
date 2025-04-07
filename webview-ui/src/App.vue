@@ -336,8 +336,8 @@ onUnmounted(() => {
 
 <template>
   <!-- Use VS Code theme variables for better integration -->
-  <div class="h-screen flex flex-col box-border p-5" style="background-color: var(--vscode-sideBar-background, white); color: var(--vscode-foreground, black); font-family: var(--vscode-font-family, sans-serif);">
-    <h1 class="text-center mb-6 text-xl font-light" style="color: var(--vscode-foreground, black);">Apex Coder</h1>
+  <div class="h-screen flex flex-col box-border p-6" style="background-color: var(--vscode-sideBar-background, white); color: var(--vscode-foreground, black); font-family: var(--vscode-font-family, sans-serif);">
+    <h1 class="text-center mb-6 text-lg font-light" style="color: var(--vscode-foreground, black);">Apex Coder</h1>
 
     <!-- Router View will render either SetupView or ChatView -->
     <router-view

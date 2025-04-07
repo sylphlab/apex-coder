@@ -121,32 +121,32 @@ const handleBlur = () => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-grow overflow-hidden px-3 pb-4">
+  <div class="flex flex-col flex-grow overflow-hidden px-4 pb-4"> <!-- Adjusted padding -->
     <!-- Status Bar -->
-    <div class="flex items-center justify-between text-xs mb-4 pb-2 border-b-2 transition-colors duration-300" 
+    <div class="flex items-center justify-between text-xs mb-5 pb-3 border-b transition-colors duration-300"
          :style="{
            borderColor: props.isModelInitialized 
-             ? 'var(--vscode-statusBarItem-successBackground, #89d185)' 
+             ? 'var(--vscode-statusBarItem-successBackground, #89d185)'
              : 'var(--vscode-statusBarItem-errorBackground, #f14c4c)'
          }">
       <div class="flex items-center space-x-4" style="color: var(--vscode-descriptionForeground, #7f7f7f);">
         <div class="flex items-center">
-          <span class="mr-1">Provider:</span>
-          <span class="font-medium px-2 py-0.5 rounded-full text-xs" 
+          <span class="mr-1.5">Provider:</span> <!-- Adjusted margin -->
+          <span class="font-medium px-2.5 py-1 rounded-md text-xs"
                 style="color: var(--vscode-foreground, black); background-color: var(--vscode-badge-background, #eee);">
             {{ props.configuredProvider || 'None' }}
           </span>
         </div>
         <div class="flex items-center">
-          <span class="mr-1">Model:</span>
-          <span class="font-medium px-2 py-0.5 rounded-full text-xs" 
+          <span class="mr-1.5">Model:</span> <!-- Adjusted margin -->
+          <span class="font-medium px-2.5 py-1 rounded-md text-xs"
                 style="color: var(--vscode-foreground, black); background-color: var(--vscode-badge-background, #eee);">
             {{ props.configuredModelId || 'default' }}
           </span>
         </div>
         <div class="flex items-center">
-          <span class="mr-1">Status:</span>
-          <span class="flex items-center px-2 py-0.5 rounded-full text-xs" 
+          <span class="mr-1.5">Status:</span> <!-- Adjusted margin -->
+          <span class="flex items-center px-2.5 py-1 rounded-md text-xs"
                 :style="{
                   backgroundColor: props.isModelInitialized 
                     ? 'var(--vscode-statusBarItem-successBackground, #89d185)' 
@@ -160,10 +160,10 @@ const handleBlur = () => {
         </div>
       </div>
       <div class="flex items-center space-x-2">
-        <button @click="emit('getConfigStatus')" 
-                :disabled="props.isLoading" 
-                class="px-2.5 py-1.5 rounded text-xs transition-all duration-200 flex items-center"
-                style="background-color: var(--vscode-button-secondaryBackground, #5f6a79); 
+        <button @click="emit('getConfigStatus')"
+                :disabled="props.isLoading"
+                class="px-2.5 py-1.5 rounded-md text-xs transition-colors duration-200 flex items-center hover:bg-opacity-80"
+                style="background-color: var(--vscode-button-secondaryBackground, #5f6a79);
                        color: var(--vscode-button-secondaryForeground, white); 
                        border: 1px solid var(--vscode-button-secondaryBorder, transparent);"
                 :style="{ opacity: props.isLoading ? '0.6' : '1' }">
@@ -172,9 +172,9 @@ const handleBlur = () => {
           </svg>
           Refresh
         </button>
-        <button @click="emit('changeSettings')" 
-                class="px-2.5 py-1.5 rounded text-xs transition-all duration-200 flex items-center"
-                style="background-color: var(--vscode-button-secondaryBackground, #5f6a79); 
+        <button @click="emit('changeSettings')"
+                class="px-2.5 py-1.5 rounded-md text-xs transition-colors duration-200 flex items-center hover:bg-opacity-80"
+                style="background-color: var(--vscode-button-secondaryBackground, #5f6a79);
                        color: var(--vscode-button-secondaryForeground, white); 
                        border: 1px solid var(--vscode-button-secondaryBorder, transparent);">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -186,33 +186,33 @@ const handleBlur = () => {
     </div>
 
     <!-- Chat Message Area -->
-    <div class="flex-grow overflow-y-auto mb-4 pr-2 custom-scrollbar" 
+    <div class="flex-grow overflow-y-auto mb-5 pr-2 custom-scrollbar"
          ref="chatContainer"
-         style="background-color: var(--vscode-sideBar-background, white); 
+         style="background-color: var(--vscode-sideBar-background, white);
                 scrollbar-width: thin;
                 scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(100, 100, 100, 0.4)) transparent;">
       
       <!-- Chat Messages -->
-      <div v-for="(msg, index) in props.chatMessages" 
+      <div v-for="(msg, index) in props.chatMessages"
            :key="msg.id || index"
-           class="chat-message mb-4 px-4 py-3 rounded-2xl max-w-[85%] break-words transition-shadow duration-200 hover:shadow-md"
+           class="chat-message mb-4 px-4 py-3 rounded-xl max-w-[85%] break-words shadow-sm"
            :class="{
-             'ml-auto rounded-tr-sm': msg.role === 'user',
-             'mr-auto rounded-tl-sm': msg.role === 'assistant' || msg.error
+             'ml-auto': msg.role === 'user', // Simpler alignment
+             'mr-auto': msg.role === 'assistant' || msg.error // Simpler alignment
            }"
            :style="{
              backgroundColor: msg.role === 'user'
-               ? 'var(--vscode-button-background, #007acc)'
+               ? 'var(--vscode-button-background, #007acc)' // Keep user message distinct
                : msg.error
                  ? 'var(--vscode-inputValidation-errorBackground, #f8d7da)'
-                 : 'var(--vscode-input-background, #eee)',
+                 : 'var(--vscode-input-background, #f0f0f0)', // Slightly lighter assistant background
              color: msg.role === 'user'
                ? 'var(--vscode-button-foreground, white)'
                : msg.error
                  ? 'var(--vscode-inputValidation-errorForeground, #721c24)'
-                 : 'var(--vscode-input-foreground, black)',
-             border: msg.error ? '1px solid var(--vscode-inputValidation-errorBorder, #f5c6cb)' : 'none',
-             boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                 : 'var(--vscode-input-foreground, black)', // Standard text color
+             border: msg.error ? '1px solid var(--vscode-inputValidation-errorBorder, #f5c6cb)' : 'none'
+             // Removed explicit boxShadow, rely on class shadow-sm
            }">
         <!-- Message header/metadata if needed -->
         <div v-if="msg.role && msg.role !== 'error'" 
@@ -226,53 +226,48 @@ const handleBlur = () => {
         </div>
         
         <!-- Message content -->
-        <pre class="whitespace-pre-wrap text-sm leading-relaxed font-sans">{{ msg.content }}</pre>
+        <pre class="whitespace-pre-wrap text-sm leading-relaxed font-sans" style="font-family: var(--vscode-editor-font-family, sans-serif);">{{ msg.content }}</pre> <!-- Use editor font -->
       </div>
       
       <!-- Loading Indicator / Thinking Step -->
-      <div v-if="props.isLoading" 
-           class="mb-4 px-4 py-3 rounded-2xl max-w-[85%] mr-auto rounded-tl-sm shadow-sm inline-flex items-center text-sm" 
-           style="background-color: var(--vscode-input-background, #eee); 
-                  color: var(--vscode-descriptionForeground, #7f7f7f);
-                  border-left: 3px solid var(--vscode-progressBar-background, #0e70c0);">
+      <div v-if="props.isLoading"
+           class="mb-4 px-4 py-3 rounded-xl max-w-[85%] mr-auto shadow-sm inline-flex items-center text-sm opacity-80"
+           style="background-color: var(--vscode-input-background, #f0f0f0);
+                  color: var(--vscode-descriptionForeground, #7f7f7f);">
+                  <!-- Removed border-left -->
         <template v-if="props.thinkingStepText">
           <!-- Display thinking step text with a subtle indicator -->
           <div class="flex items-center">
-            <div class="mr-2 flex space-x-1">
-              <span class="block w-2 h-2 rounded-full bg-blue-400 opacity-75 animate-pulse"></span>
-              <span class="block w-2 h-2 rounded-full bg-blue-400 opacity-75 animate-pulse" style="animation-delay: 0.2s"></span>
-              <span class="block w-2 h-2 rounded-full bg-blue-400 opacity-75 animate-pulse" style="animation-delay: 0.4s"></span>
+            <div class="mr-2.5 flex space-x-1.5"> <!-- Adjusted spacing -->
+              <span class="block w-1.5 h-1.5 rounded-full bg-[var(--vscode-descriptionForeground)] opacity-60 animate-pulse"></span> <!-- Smaller dots, theme color -->
+              <span class="block w-1.5 h-1.5 rounded-full bg-[var(--vscode-descriptionForeground)] opacity-60 animate-pulse" style="animation-delay: 0.2s"></span>
+              <span class="block w-1.5 h-1.5 rounded-full bg-[var(--vscode-descriptionForeground)] opacity-60 animate-pulse" style="animation-delay: 0.4s"></span>
             </div>
             <span class="whitespace-pre-wrap">{{ props.thinkingStepText }}</span>
           </div>
         </template>
         <template v-else>
           <!-- Improved dot animation -->
-          <div class="flex items-center justify-center space-x-1">
-            <span class="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0s"></span>
-            <span class="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
-            <span class="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+          <div class="flex items-center justify-center space-x-1.5"> <!-- Adjusted spacing -->
+            <span class="inline-block w-1.5 h-1.5 bg-[var(--vscode-descriptionForeground)] rounded-full animate-bounce" style="animation-delay: 0s"></span> <!-- Smaller dots, theme color -->
+            <span class="inline-block w-1.5 h-1.5 bg-[var(--vscode-descriptionForeground)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+            <span class="inline-block w-1.5 h-1.5 bg-[var(--vscode-descriptionForeground)] rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
           </div>
         </template>
       </div>
     </div>
 
     <!-- Chat Input Area -->
-    <div class="flex flex-col mt-4 pt-4 border-t transition-all duration-300" 
+    <div class="flex flex-col mt-auto pt-4 border-t transition-colors duration-300"
          :class="{ 'border-opacity-70': isTextareaFocused }"
          style="border-color: var(--vscode-editorWidget-border, #ccc);">
-      
+
       <!-- Modern chat input container -->
-      <div class="flex items-center bg-opacity-50 p-1 rounded-2xl"
-           :class="{ 'ring-2 ring-offset-1': isTextareaFocused }"
+      <div class="flex items-center p-1.5 rounded-xl transition-shadow duration-200"
+           :class="{ 'shadow-md': isTextareaFocused }" <!-- Use shadow for focus -->
            :style="{
-             backgroundColor: 'var(--vscode-editor-background, #f5f5f5)',
-             borderColor: isTextareaFocused 
-               ? 'var(--vscode-focusBorder, #0090ff)'
-               : 'var(--vscode-input-border, #ccc)',
-             boxShadow: isTextareaFocused 
-               ? '0 0 0 1px var(--vscode-focusBorder, rgba(0, 144, 255, 0.2))'
-               : '0 1px 3px rgba(0, 0, 0, 0.05)'
+             backgroundColor: 'var(--vscode-input-background, #f5f5f5)', // Use input background
+             // Removed border and explicit boxShadow, rely on class/theme
            }">
         
         <!-- Text input area -->
@@ -286,18 +281,18 @@ const handleBlur = () => {
             @focus="handleFocus"
             @blur="handleBlur"
             :disabled="props.isLoading || !props.isModelInitialized"
-            class="w-full py-2 px-3 resize-none min-h-[44px] max-h-[150px] overflow-y-auto font-sans text-sm transition-all duration-200 focus:outline-none bg-transparent rounded-xl"
-            :class="{ 'opacity-60': props.isLoading || !props.isModelInitialized }"
+            class="w-full py-2.5 px-3 resize-none min-h-[44px] max-h-[150px] overflow-y-auto font-sans text-sm transition-all duration-200 focus:outline-none bg-transparent rounded-lg custom-scrollbar"
+            :class="{ 'opacity-60 cursor-not-allowed': props.isLoading || !props.isModelInitialized }" <!-- Adjusted disabled style -->
             :style="{
               color: 'var(--vscode-input-foreground, black)',
               border: 'none'
             }"
           ></textarea>
           
-          <!-- Disabled state overlay -->
-          <div v-if="!props.isModelInitialized" 
-               class="absolute inset-0 flex items-center justify-center rounded-lg bg-black bg-opacity-5 backdrop-blur-[1px]">
-            <div class="px-3 py-1.5 bg-black bg-opacity-70 text-white rounded-full text-xs">
+          <!-- Disabled state overlay - Simplified -->
+          <div v-if="!props.isModelInitialized"
+               class="absolute inset-0 flex items-center justify-center rounded-lg">
+            <div class="px-3 py-1 bg-[var(--vscode-disabledForeground)] bg-opacity-70 text-[var(--vscode-editor-background)] rounded-md text-xs font-medium"> <!-- Adjusted style -->
               <span class="inline-block w-2 h-2 rounded-full bg-red-400 mr-1.5"></span>
               Model not initialized
             </div>
@@ -305,19 +300,19 @@ const handleBlur = () => {
         </div>
         
         <!-- Send button (circular design) -->
-        <button 
-          @click="handleSend" 
-          :disabled="props.isLoading || !props.currentInput.trim() || !props.isModelInitialized" 
-          class="flex items-center justify-center h-10 w-10 rounded-full cursor-pointer transition-all duration-200"
-          :class="{ 
-            'opacity-50 scale-95': props.isLoading || !props.currentInput.trim() || !props.isModelInitialized,
-            'hover:scale-105': !(props.isLoading || !props.currentInput.trim() || !props.isModelInitialized)
+        <button
+          @click="handleSend"
+          :disabled="props.isLoading || !props.currentInput.trim() || !props.isModelInitialized"
+          class="flex items-center justify-center h-9 w-9 rounded-lg cursor-pointer transition-all duration-200 ml-1.5"
+          :class="{
+            'opacity-60': props.isLoading || !props.currentInput.trim() || !props.isModelInitialized, // Simpler disabled state
+            'hover:bg-opacity-85': !(props.isLoading || !props.currentInput.trim() || !props.isModelInitialized) // Simpler hover
           }"
           :style="{
-            backgroundColor: 'var(--vscode-button-background, #007acc)', 
-            color: 'var(--vscode-button-foreground, white)', 
-            border: 'none',
-            transform: props.isLoading || !props.currentInput.trim() || !props.isModelInitialized ? 'none' : 'translateY(0)'
+            backgroundColor: 'var(--vscode-button-background, #007acc)',
+            color: 'var(--vscode-button-foreground, white)',
+            border: 'none'
+            // Removed transform
           }">
           <template v-if="props.isLoading">
             <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -333,17 +328,17 @@ const handleBlur = () => {
         </button>
       </div>
       
-      <!-- Text counter and hints (optional) -->
-      <div class="flex justify-between items-center text-xs mt-1 px-2" style="color: var(--vscode-descriptionForeground, #7f7f7f);">
+      <!-- Text counter and hints -->
+      <div class="flex justify-between items-center text-xs mt-1.5 px-2 opacity-80" style="color: var(--vscode-descriptionForeground, #7f7f7f);"> <!-- Adjusted margin/opacity -->
         <div>
-          <span v-if="!props.isModelInitialized" class="text-xs">
-            <span style="color: var(--vscode-errorForeground, #f14c4c);">●</span> Connect model to send messages
+          <span v-if="!props.isModelInitialized" class="text-xs flex items-center"> <!-- Use flex -->
+            <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5" style="background-color: var(--vscode-errorForeground, #f14c4c);"></span> Connect model to send messages <!-- Adjusted indicator -->
           </span>
-          <span v-else-if="props.isLoading" class="text-xs">
-            <span style="color: var(--vscode-progressBar-background, #0e70c0);">●</span> Processing request...
+          <span v-else-if="props.isLoading" class="text-xs flex items-center"> <!-- Use flex -->
+            <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 animate-pulse" style="background-color: var(--vscode-progressBar-background, #0e70c0);"></span> Processing request... <!-- Adjusted indicator -->
           </span>
-          <span v-else-if="props.currentInput.length > 0" class="text-xs">
-            Press <span class="px-1 py-0.5 rounded text-xs bg-opacity-20" style="background-color: var(--vscode-editor-lineHighlightBackground, #f0f0f0);">Enter ↵</span> to send
+          <span v-else-if="props.currentInput.length > 0" class="text-xs hidden sm:inline"> <!-- Hide on very small screens -->
+            Press <span class="px-1 py-0.5 rounded text-xs" style="background-color: var(--vscode-input-background, #f0f0f0); border: 1px solid var(--vscode-input-border, #ccc);">Enter ↵</span> to send <!-- Adjusted hint style -->
           </span>
         </div>
         <div v-if="props.currentInput.length > 500" class="text-xs" :style="{ color: props.currentInput.length > 1000 ? 'var(--vscode-errorForeground, #f14c4c)' : undefined }">
