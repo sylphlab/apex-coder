@@ -21,8 +21,7 @@
                 "${workspaceFolder}",
                 "--extensionDevelopmentPath=${workspaceFolder}"
             ],
-			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ],
-			"postDebugTask": "Run: Show Panel"
+			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ]
 		}
 	],
 	"compounds": [] // Keep compounds empty
