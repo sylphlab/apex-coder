@@ -65,15 +65,18 @@ export function getWebviewContent(
         // In development, we need to allow connections to the Vite dev server
         // Note: Looser CSP for development convenience.
         const cspSource = webview.cspSource;
+        // Simpler, more explicit CSP for dev, explicitly allowing localhost/127.0.0.1
+        // Temporarily removed nonce for script-src, relying on unsafe-inline/eval for HMR
         const csp = `
             default-src 'none';
-            connect-src ${cspSource} ${devServerHttpUri} ${devServerWsUri};
-            img-src ${cspSource} ${devServerHttpUri} data:;
-            script-src 'nonce-${nonce}' ${devServerHttpUri} 'unsafe-eval'; /* unsafe-eval for HMR */
-            style-src ${cspSource} ${devServerHttpUri} 'unsafe-inline'; /* unsafe-inline for HMR and dynamic styles */
-            font-src ${cspSource} ${devServerHttpUri};
+            connect-src 'self' ${cspSource} http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*;
+            img-src 'self' ${cspSource} http://127.0.0.1:* http://localhost:* data:;
+            script-src 'self' ${cspSource} http://127.0.0.1:* http://localhost:* 'unsafe-inline' 'unsafe-eval';
+            style-src 'self' ${cspSource} http://127.0.0.1:* http://localhost:* 'unsafe-inline';
+            font-src 'self' ${cspSource} http://127.0.0.1:* http://localhost:*;
         `.replace(/\s{2,}/g, ' ').trim(); // Format CSP string properly
 
+        // Note: Nonce is still generated but not used in script-src for dev mode currently
         return `<!DOCTYPE html>
         <html lang="en">
         <head>

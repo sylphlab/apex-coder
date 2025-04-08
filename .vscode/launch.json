@@ -5,7 +5,10 @@
 			"name": "Run Extension with UI Dev Server",
 			"type": "extensionHost",
 			"request": "launch",
-			"args": [ "--extensionDevelopmentPath=${workspaceFolder}" ],
+			"args": [
+                "${workspaceFolder}",
+                "--extensionDevelopmentPath=${workspaceFolder}"
+            ],
 			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ],
 			"preLaunchTask": "Start Full Dev Watch", // Point to the new meta task
             "postDebugTask": "Kill All Terminals"
@@ -14,7 +17,10 @@
 			"name": "Run Extension", // Backend only debugging
 			"type": "extensionHost",
 			"request": "launch",
-			"args": [ "--extensionDevelopmentPath=${workspaceFolder}" ],
+			"args": [
+                "${workspaceFolder}",
+                "--extensionDevelopmentPath=${workspaceFolder}"
+            ],
 			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ],
 			"preLaunchTask": "Start Backend Watch", // Point to backend watch meta task
 			"postDebugTask": "Run: Show Panel"

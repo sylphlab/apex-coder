@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
+import ChatView from '../views/ChatView.vue'; // <-- Import directly
 
 const routes = [
   {
@@ -14,7 +15,7 @@ const routes = [
   {
     path: '/chat',
     name: 'Chat',
-    component: () => import('../views/ChatView.vue'), // Lazy load
+    component: ChatView, // <-- Use direct import
   },
   {
     path: '/api-keys',
