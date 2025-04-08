@@ -122,6 +122,14 @@ console.log('Tool execution result:', message.payload);
 // scrollToBottom(); // If adding to chat
 break;
 
+    case 'providersResult': // Handle message containing provider list
+      console.log('Handling providersResult:', message.payload);
+      if (message.payload?.providers) {
+        // Directly update the store's state ref
+        configStore.providers = message.payload.providers;
+      }
+      break;
+
 
     case 'aiResponseChunk':
       const chunkPayload = message.payload;
@@ -213,19 +221,15 @@ onUnmounted(() => {
     <!-- Router View will render Welcome, Setup, or Chat views -->
     <!-- Config-related props/emits are removed as views will use the store -->
     <router-view
-      @save-configuration="configStore.saveConfiguration" <!-- Call store action directly -->
-
+      @save-configuration="configStore.saveConfiguration"
       :chat-messages="chatMessages"
       :current-input="currentInput"
       :is-loading="isLoading"
-      :is-model-initialized="isModelInitialized"
-      :configured-provider="configuredProvider"
-      :configured-model-id="configuredModelId"
       :thinking-step-text="thinkingStepText"
       @update:currentInput="currentInput = $event"
       @send-chat-message="sendChatMessage"
-      @get-config-status="getConfigStatus" <!-- Keep this for manual refresh if needed -->
-      @change-settings="configStore.$reset(); router.push('/setup')" <!-- Reset store state and navigate -->
+      @get-config-status="getConfigStatus" 
+      @change-settings="configStore.$reset(); router.push('/setup')"
     ></router-view>
   </div>
 </template>

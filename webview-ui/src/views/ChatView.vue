@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, defineProps, defineEmits, nextTick, watch, onMounted } from 'vue';
+import { ref, nextTick, watch, onMounted } from 'vue'; // Removed defineProps, defineEmits
 import { storeToRefs } from 'pinia';
 import { useConfigStore } from '../stores/configStore';
 import { gsap } from 'gsap';
@@ -35,7 +35,7 @@ const isTextareaFocused = ref(false);
 
 // Method to handle sending message
 const handleSend = () => {
-  if (props.currentInput.trim() && props.isModelInitialized && !props.isLoading) {
+  if (props.currentInput.trim() && isModelInitialized.value && !props.isLoading) { // Use store state ref
     emit('sendChatMessage');
   }
 };
