@@ -3,46 +3,48 @@
   "tasks": [
     // Backend watch tasks
     {
+      "label": "npm: watch:esbuild",
         "type": "npm",
         "script": "watch:esbuild",
         "group": "build",
         "problemMatcher": "$esbuild-watch",
         "isBackground": true,
-        "label": "npm: watch:esbuild",
-        "presentation": { "reveal": "always", "panel": "shared" },
-        "options": {
-            "statusbar": {
-                "label": "$(tools) esbuild",
-                "hide": false
-            }
-        }
+        "presentation": { 
+          "reveal": "always", 
+          "panel": "shared",
+          "group": "watchTasks",
+          "close": true
+         },
+         "options": {
+           "statusbar": {
+             "hide": true
+           }
+         }
     },
     {
+      "label": "npm: watch:tsc",
         "type": "npm",
         "script": "watch:tsc",
         "group": "build",
         "problemMatcher": "$tsc-watch",
         "isBackground": true,
-        "label": "npm: watch:tsc",
-        "presentation": { "reveal": "always", "panel": "shared" },
-        "options": {
-            "statusbar": {
-                "label": "$(code) TSC",
-                "hide": false
-            }
-        }
+        "presentation": { 
+          "reveal": "always", 
+          "panel": "shared",
+          "group": "watchTasks",
+          "close": true
+       },
+       "options": {
+         "statusbar": {
+           "hide": true
+         }
+       }
     },
-    // Backend meta task
     {
-        "label": "Start Backend Watch",
-        "dependsOn": [ "npm: watch:tsc", "npm: watch:esbuild" ],
-        "problemMatcher": [],
-        "group": { "kind": "build" }
-    },
-    // Vite task with improved problem matcher
-    {
+      "label": "npm: watch:vite",
       "type": "npm",
       "script": "watch:vite",
+      "group": "build",
       "problemMatcher": {
         "owner": "vite",
         "fileLocation": ["relative", "${workspaceFolder}"],
@@ -57,83 +59,81 @@
           "activeOnStart": true,
           "beginsPattern": "VITE v[0-9]\\.[0-9]\\.[0-9]",
           "endsPattern": "(?:Local|Network):\\s+http"
-        }
+        },
       },
       "isBackground": true,
-      "group": "build",
       "presentation": {
-        "reveal": "always",
+        "reveal": "always", 
         "panel": "shared",
-        "showReuseMessage": false,
-        "focus": true
+        "group": "watchTasks",
+        "close": true
       },
-      "label": "npm: watch:vite",
       "detail": "vite development server",
       "options": {
-          "statusbar": {
-              "label": "$(rocket) Vite",
-              "color": "#FFB900",
-              "hide": false
-          }
+        "statusbar": {
+          "hide": true
         }
+      }
     },
     // Meta task for Full Dev Watch (Default Build Task)
     {
         "label": "Start Full Dev Watch",
         "dependsOn": [
-            "Start Backend Watch",
+            "npm: watch:esbuild",
+            "npm: watch:tsc",
             "npm: watch:vite"
         ],
         "problemMatcher": [],
-        "group": { "kind": "build", "isDefault": true }
-    },
-    // Other tasks (maintained)
-    {
-        "type": "npm",
-        "script": "watch-tests",
-        "problemMatcher": "$tsc-watch",
-        "isBackground": true,
-        "presentation": { "reveal": "always", "panel": "shared" },
-        "group": "build"
-    },
-    {
-        "label": "tasks: watch-tests",
-        "dependsOn": [ "Start Backend Watch", "npm: watch-tests" ],
-        "problemMatcher": []
+        "group": { "kind": "build", "isDefault": true },
+        "options": {
+          "statusbar": {
+            "hide": true
+          }
+        }
     },
     {
         "label": "Run: Show Panel",
         "type": "shell",
         "command": "${command:apex-coder.showPanel}",
         "presentation": { "reveal": "always", "clear": true },
-        "problemMatcher": []
+        "problemMatcher": [],
+        "options": {
+          "statusbar": {
+            "hide": true
+          }
+        }
     },
     {
       "label": "Kill All Terminals",
       "type": "shell",
-      "command": "echo ${input:Terminate Vite Watch} && echo ${input:Terminate TSC Watch} && echo ${input:Terminate ESBuild Watch}",
+      "command": "echo ${input:Terminate vite:watch} ${input:Terminate tsc:watch} ${input:Terminate esbuild:watch}",
       "problemMatcher": [],
       "presentation": {
         "reveal": "never",
         "close": true
       },
+      "options": {
+        "statusbar": {
+          "hide": true
+        }
+      },
     }
   ],
   "inputs": [
     {
-      "id": "Terminate Vite Watch",
+      "id": "Terminate vite:watch",
       "type": "command",
       "command": "workbench.action.tasks.terminate",
       "args": "npm: watch:vite"
     },
     {
-      "id": "Terminate TSC Watch",
+      "id": "Terminate tsc:watch",
       "type": "command",
       "command": "workbench.action.tasks.terminate",
       "args": "npm: watch:tsc"
     },
     {
-      "id": "Terminate ESBuild Watch",
+      "id": "Terminate esbuild:watch",
       "type": "command",
       "command": "workbench.action.tasks.terminate",
       "args": "npm: watch:esbuild"
