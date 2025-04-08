@@ -4,8 +4,8 @@ import * as path from 'path';
 import { logger } from '../utils/logger';
 
 // --- Development Flag & Settings ---
-// Development Flag & Settings --- (Removed IS_DEVELOPMENT constant)
-const DEV_SERVER_URL = 'http://127.0.0.1:5173'; // Still needed for compilation
+// Default port if .vite.port file is not found or invalid
+const DEFAULT_DEV_PORT = 5173;
 
 /**
  * Generates the HTML content for the webview panel.
@@ -19,12 +19,36 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     const isDevelopment = extensionMode === vscode.ExtensionMode.Development;
 
     if (isDevelopment) {
-        logger.info('Generating webview content for DEVELOPMENT (Vite dev server)...');
+        logger.info('Generating webview content for DEVELOPMENT (Vite dev server).');
+
+        let devPort = DEFAULT_DEV_PORT;
+        // Construct the path to the .vite.port file in the workspace root
+        const portFilePath = path.join(extensionUri.fsPath, '..', '.vite.port'); // Go up one level from extension root
+
+        try {
+            if (fs.existsSync(portFilePath)) {
+                const portFileContent = fs.readFileSync(portFilePath, 'utf8').trim();
+                const parsedPort = parseInt(portFileContent, 10);
+                if (!isNaN(parsedPort) && parsedPort > 0 && parsedPort < 65536) {
+                    devPort = parsedPort;
+                    logger.info(`Successfully read Vite dev server port ${devPort} from ${portFilePath}`);
+                } else {
+                    logger.warn(`Invalid port number "${portFileContent}" found in ${portFilePath}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
+                }
+            } else {
+                logger.warn(`.vite.port file not found at ${portFilePath}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
+            }
+        } catch (error) {
+            logger.error(`Error reading or parsing ${portFilePath}: ${error}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
+        }
+
+        const devServerBaseUrl = `http://127.0.0.1:${devPort}`;
+        const devServerHttpUri = devServerBaseUrl; // HTTP is the same
+        const devServerWsUri = devServerBaseUrl.replace(/^http/, 'ws'); // Replace http with ws for WebSocket
+
         // In development, we need to allow connections to the Vite dev server
         // Note: Looser CSP for development convenience.
         const cspSource = webview.cspSource;
-        const devServerHttpUri = DEV_SERVER_URL.replace(/^http:/, 'http:').replace(/^https:/, 'https:');
-        const devServerWsUri = DEV_SERVER_URL.replace(/^http/, 'ws');
 
         return `<!DOCTYPE html>
         <html lang="en">
@@ -34,14 +58,14 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 default-src 'none';
                 connect-src ${cspSource} ${devServerHttpUri} ${devServerWsUri};
                 img-src ${cspSource} ${devServerHttpUri} data:;
-                script-src 'nonce-${nonce}' ${devServerHttpUri} 'unsafe-eval';
+                script-src 'nonce-${nonce}' ${devServerHttpUri} 'unsafe-eval'; /* Keep unsafe-eval for HMR */
                 style-src ${cspSource} ${devServerHttpUri} 'unsafe-inline';
                 font-src ${cspSource} ${devServerHttpUri};
             ">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Apex Coder (Dev)</title>
-            <script type="module" nonce="${nonce}" src="${DEV_SERVER_URL}/@vite/client"></script>
-            <script type="module" nonce="${nonce}" src="${DEV_SERVER_URL}/src/main.ts"></script>
+            <script type="module" nonce="${nonce}" src="${devServerHttpUri}/@vite/client"></script>
+            <script type="module" nonce="${nonce}" src="${devServerHttpUri}/src/main.ts"></script>
         </head>
         <body>
             <div id="app"></div>
