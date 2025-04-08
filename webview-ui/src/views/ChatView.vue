@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, watch, onMounted, computed } from "vue";
+import { ref, nextTick, watch, onMounted, computed, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useConfigStore } from "../stores/configStore";
 import ChatHeader from "../components/ChatHeader.vue";
@@ -7,10 +7,12 @@ import ChatMessageList from "../components/ChatMessageList.vue";
 import ChatInputArea from "../components/ChatInputArea.vue";
 import ChatEmptyState from "../components/ChatEmptyState.vue";
 import ChatLoadingIndicator from "../components/ChatLoadingIndicator.vue";
+// Import Message type if needed for strong typing
+import type { Message } from "ai";
 
 // Define props received from App.vue (or parent)
 const props = defineProps<{
-  chatMessages: Array<any>;
+  chatMessages: Message[];
   currentInput: string;
   isLoading: boolean;
   thinkingStepText: string | null;
@@ -100,8 +102,26 @@ watch(
   { deep: true },
 );
 onMounted(() => {
+  window.addEventListener('message', chatHistoryListener);
   scrollToBottom(false); // Initial scroll without smooth behavior
 });
+
+onUnmounted(() => {
+  window.removeEventListener('message', chatHistoryListener);
+});
+
+const chatHistoryListener = (event: MessageEvent) => {
+    const message = event.data;
+    if (message.command === 'loadChatHistory') {
+        console.log("[ChatView] Received chat history:", message.payload.messages);
+        // This component receives messages via props, 
+        // so the parent component (App.vue) should handle this message 
+        // and update the prop passed to ChatView.
+        // If ChatView were managing its own state:
+        // chatMessagesInternal.value = message.payload.messages || [];
+        // nextTick(() => scrollToBottom(false)); 
+    }
+};
 // --- End Scrolling Logic ---
 </script>
 

@@ -147,6 +147,29 @@ import {
   fileStatsToolDefinition,
   searchFilesToolDefinition,
 } from "./fileSystemQueryTools";
+// Import the RAG tool definition
+import { searchCodebaseToolDefinition } from "./ragTools";
+// Import VS Code interaction tools
+import {
+    getOpenTabsToolDefinition,
+    getActiveTerminalsToolDefinition,
+} from "./vscodeInteractionTools";
+// Import System Info tools
+import {
+    getCurrentTimeToolDefinition,
+    getSystemInfoToolDefinition,
+} from "./systemInfoTools";
+// Import Web Access tools
+import {
+    fetchToolDefinition,
+    searchToolDefinition,
+} from "./webAccessTools";
+// Import Patch tool
+import { applyDiffToolDefinition } from "./patchTools";
+// Import Execution tool
+import { runCommandToolDefinition } from "./executionTools";
+// Import Scheduling tool
+import { scheduleActionToolDefinition } from "./schedulingTools";
 
 /**
  * Creates all tools, injecting the webview panel for message posting.
@@ -209,6 +232,72 @@ export function createAllTools(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       execute: async (args: any) =>
         searchFilesToolDefinition.execute(args, panel),
+    }),
+    // Add the new RAG tool
+    searchCodebase: tool({
+      description: searchCodebaseToolDefinition.description,
+      parameters: searchCodebaseToolDefinition.parameters,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      execute: async (args: any) => searchCodebaseToolDefinition.execute(args, panel),
+    }),
+    // VS Code Interaction Tools
+    getOpenTabs: tool({
+        description: getOpenTabsToolDefinition.description,
+        parameters: getOpenTabsToolDefinition.parameters,
+        execute: async (args: any) => getOpenTabsToolDefinition.execute(args, panel),
+    }),
+    getActiveTerminals: tool({
+        description: getActiveTerminalsToolDefinition.description,
+        parameters: getActiveTerminalsToolDefinition.parameters,
+        execute: async (args: any) => getActiveTerminalsToolDefinition.execute(args, panel),
+    }),
+    // System Info Tools
+    getCurrentTime: tool({
+        description: getCurrentTimeToolDefinition.description,
+        parameters: getCurrentTimeToolDefinition.parameters,
+        execute: async (args: any) => getCurrentTimeToolDefinition.execute(args, panel),
+    }),
+    getSystemInfo: tool({
+        description: getSystemInfoToolDefinition.description,
+        parameters: getSystemInfoToolDefinition.parameters,
+        execute: async (args: any) => getSystemInfoToolDefinition.execute(args, panel),
+    }),
+    // Web Access Tools
+    fetch: tool({
+        description: fetchToolDefinition.description,
+        parameters: fetchToolDefinition.parameters,
+        execute: async (args: any) => fetchToolDefinition.execute(args, panel),
+    }),
+    "browser/search": tool({
+        description: searchToolDefinition.description,
+        parameters: searchToolDefinition.parameters,
+        execute: async (args: any) => searchToolDefinition.execute(args, panel),
+    }),
+    // Patch Tool
+    applyDiff: tool({
+        description: applyDiffToolDefinition.description,
+        parameters: applyDiffToolDefinition.parameters,
+        execute: async (args: any) => applyDiffToolDefinition.execute(args, panel),
+    }),
+    // Execution Tool
+    runCommand: tool({
+        description: runCommandToolDefinition.description,
+        parameters: runCommandToolDefinition.parameters,
+        execute: async (args: any) => runCommandToolDefinition.execute(args, panel),
+    }),
+    // Scheduling Tool
+    scheduleAction: tool({
+        description: scheduleActionToolDefinition.description,
+        parameters: scheduleActionToolDefinition.parameters,
+        // IMPORTANT: This execute wrapper needs modification to pass currentSessionId
+        execute: async (args: any) => {
+            // How to get currentSessionId here? 
+            // Option 1: Modify createAllTools to accept session context?
+            // Option 2: The calling code in panelManager needs to inject it.
+            // For now, call without it (will fail inside execute)
+            logger.warn("[CoreTools] scheduleAction called, but currentSessionId passing is not implemented in wrapper.");
+            return scheduleActionToolDefinition.execute(args, panel, undefined);
+        },
     }),
   };
 }

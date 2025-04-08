@@ -12,8 +12,10 @@ import {
 import { getAllProviders } from "./ai-sdk/providerService";
 import type { ProviderDetails } from "./ai-sdk/providerService";
 import { initializeAiSdkModel } from "./ai-sdk/configLoader.js";
+import { SessionManager } from "./core/sessionManager";
 
 let panelManager: PanelManager | undefined;
+let sessionManager: SessionManager | undefined;
 
 // --- Helper Function Implementations (Moved Before Usage) ---
 
@@ -386,6 +388,18 @@ export async function activate(
 ): Promise<void> {
   logger.info("Activating Apex Coder extension...");
 
+  // Initialize Session Manager FIRST
+  sessionManager = new SessionManager(context);
+  try {
+    await sessionManager.initialize();
+    logger.info("Session Manager initialized successfully.");
+  } catch (error) {
+    logger.error("Failed to initialize Session Manager:", error);
+    // Show error to user, potentially block further activation?
+    vscode.window.showErrorMessage(`Apex Coder failed to initialize session storage. Chat history might be unavailable. Error: ${error}`);
+    // Depending on severity, might return here
+  }
+
   const workspaceRootPath = await getWorkspaceRootPath(context);
   if (!workspaceRootPath) {
     return;
@@ -395,6 +409,7 @@ export async function activate(
     context,
     context.extensionMode,
     workspaceRootPath,
+    sessionManager,
   );
 
   // Await this check

@@ -13,6 +13,8 @@ import {
 } from "../ai-sdk/providerService";
 import type { Tool } from "ai";
 import { streamText, StreamTextResult as AISdkStreamTextResult } from "ai";
+// Import Message type from Vercel AI SDK
+import type { Message } from "ai";
 import { createAllTools } from "../tools/coreTools";
 // Assuming assistantManager is correctly structured for import
 import {
@@ -34,6 +36,11 @@ import {
   PANEL_TITLE,
   SECRET_API_KEY_PREFIX,
 } from "../utils/constants";
+// Import SessionManager and SessionState
+import type { SessionManager } from "../core/sessionManager";
+import type { SessionState } from "../types/sessionState";
+// Import uuid
+import { v4 as uuidv4 } from 'uuid';
 
 // Define types for message payloads more strictly
 // Use unknown for generic payloads, define specific interfaces where structure is known
@@ -72,9 +79,9 @@ export class PanelManager {
   private readonly extensionMode: vscode.ExtensionMode;
   private readonly workspaceRootPath: string | undefined;
   private isModelInitialized = false;
-  // Add state for current session assistants
-  private currentAssistants: string[] = []; // Store assistant IDs or names
-  private currentSessionId: string | null = null; // Track current session (placeholder)
+  private currentAssistants: string[] = []; // Now managed by session state
+  private currentSessionId: string | null = null; // Track current active session
+  private readonly sessionManager: SessionManager; // Add session manager instance
   private readonly messageHandlers: Record<
     string,
     (payload: unknown) => Promise<void> | void
@@ -84,11 +91,13 @@ export class PanelManager {
     context: vscode.ExtensionContext,
     extensionMode: vscode.ExtensionMode,
     workspaceRootPath: string | undefined,
+    sessionManager: SessionManager, // Inject SessionManager
   ) {
     this.extensionUri = context.extensionUri;
     this.context = context;
     this.extensionMode = extensionMode;
     this.workspaceRootPath = workspaceRootPath;
+    this.sessionManager = sessionManager; // Store instance
     logger.info(
       `PanelManager initialized with workspaceRootPath: ${this.workspaceRootPath ?? "undefined"}`,
     );
@@ -118,8 +127,9 @@ export class PanelManager {
 
   /**
    * Creates or reveals the webview panel.
+   * Needs to handle loading the state for a specific session.
    */
-  public async showPanel(): Promise<void> {
+  public async showPanel(sessionId?: string): Promise<void> { // Allow specifying session ID
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -189,7 +199,46 @@ export class PanelManager {
       this.context.subscriptions,
     );
 
-    // Send initial config status
+    // Create a new session if no ID is provided or found?
+    if (!sessionId) {
+        const newSession = this.sessionManager.createSession(); // Create default session
+        sessionId = newSession.sessionId;
+        logger.info(`No session ID provided, created and using new session: ${sessionId}`);
+    }
+    this.currentSessionId = sessionId;
+    // Load session state AFTER panel creation but before sending initial status?
+    if (this.currentSessionId) { // Check if we have a valid ID before trying to load
+      const sessionState = this.sessionManager.getSession(this.currentSessionId);
+      if (sessionState) {
+          this.currentAssistants = sessionState.activeAssistantIds; // Load assistants from session
+          // ** Send initial messages history to webview **
+          PanelManager.currentPanel?.webview.postMessage({
+              command: 'loadChatHistory', 
+              payload: { messages: sessionState.messages }
+          });
+          logger.info(`Loaded state and message history for session: ${this.currentSessionId}`);
+      } else {
+          logger.error(`Could not find session state for ID: ${this.currentSessionId}. Creating new.`);
+          const newSession = this.sessionManager.createSession();
+          this.currentSessionId = newSession.sessionId ?? null; // Assign new ID, ensuring null if undefined
+          this.currentAssistants = [];
+          // ** Send empty message list for new session **
+          PanelManager.currentPanel?.webview.postMessage({
+              command: 'loadChatHistory', 
+              payload: { messages: [] }
+          });
+      }
+    } else {
+        // This case should ideally not happen if we always ensure a session ID
+        logger.error("showPanel called without a valid currentSessionId.");
+        // Optionally create a session here too?
+        PanelManager.currentPanel?.webview.postMessage({
+              command: 'loadChatHistory', 
+              payload: { messages: [] }
+        });
+    }
+
+    // Send initial config status (now potentially session-aware if needed)
     await this.sendConfigStatus();
   }
 
@@ -662,6 +711,18 @@ export class PanelManager {
    * Currently implements basic target recognition and Vercel SDK streaming.
    */
   private async handleSendMessage(payload: SendMessagePayload): Promise<void> {
+    if (!this.currentSessionId) {
+        this.postErrorToWebview("No active session found.", "sendMessage");
+        return;
+    }
+    const sessionState = this.sessionManager.getSession(this.currentSessionId);
+    if (!sessionState) {
+        this.postErrorToWebview(`Session ${this.currentSessionId} not found.`, "sendMessage");
+        return;
+    }
+    // Update local currentAssistants based on loaded session state
+    this.currentAssistants = sessionState.activeAssistantIds;
+
     if (!this.isModelInitialized) {
       this.postErrorToWebview(
         "AI model is not initialized. Please check configuration.",
@@ -676,8 +737,8 @@ export class PanelManager {
     const mentionMatch = text.match(/^@([\w-]+):\s*/);
     if (mentionMatch) {
       const mentionedName = mentionMatch[1];
-      // TODO: Replace with actual lookup logic based on loaded profiles
-      if (this.currentAssistants.includes(mentionedName)) { 
+      // Use session's active assistants
+      if (sessionState.activeAssistantIds.includes(mentionedName)) { 
         targetAssistantId = mentionedName;
         logger.info(`Message targets assistant: ${targetAssistantId}`);
         // TODO: Remove the mention from the text passed to the model?
@@ -685,14 +746,11 @@ export class PanelManager {
       } else {
          logger.warn(`Mentioned assistant '${mentionedName}' not found in current session.`);
       }
-    } else if (this.currentAssistants.length === 1) {
-        // If only one assistant, assume it's the target
-        targetAssistantId = this.currentAssistants[0];
+    } else if (sessionState.activeAssistantIds.length === 1) {
+        targetAssistantId = sessionState.activeAssistantIds[0];
         logger.info(`Message implicitly targets the only assistant: ${targetAssistantId}`);
     } else {
-        // TODO: Implement logic to select assistant based on context/capabilities
-        // For now, maybe pick the first one or none if multiple?
-        targetAssistantId = this.currentAssistants.length > 0 ? this.currentAssistants[0] : null;
+        targetAssistantId = sessionState.activeAssistantIds.length > 0 ? sessionState.activeAssistantIds[0] : null;
         logger.info(`Multiple assistants, defaulting target to: ${targetAssistantId ?? 'None (logic TBD)'}`);
     }
     // TODO: Use the targetAssistantId to select the correct profile/model
@@ -724,12 +782,21 @@ export class PanelManager {
     try {
       // Prepend profile instructions if available
       const systemPrompt = assistantProfile?.instructions ? `${assistantProfile.instructions}\n\n---\n\n` : "";
-      const userMessage = systemPrompt + text;
+      const userMessageText = systemPrompt + text;
+
+      // ** Add user message to session state BEFORE sending to AI **
+      const userMessageForState: Message = {
+          id: uuidv4(), // Add unique ID
+          role: 'user',
+          content: text 
+      };
+      sessionState.messages.push(userMessageForState);
+      // No need to await save here, save after AI response
 
       // Replace deprecated CoreTool with Tool
       const tools: Record<string, Tool> = createAllTools(PanelManager.currentPanel) as Record<string, Tool>; // Cast needed due to wrapper return type
 
-      logger.info(`[${streamId}] Sending to AI: ${userMessage}`);
+      logger.info(`[${streamId}] Sending to AI: ${userMessageText}`);
       logger.info(
         `[${streamId}] Tools configured: ${Object.keys(tools).join(", ") || "None"}`,
       );
@@ -742,7 +809,8 @@ export class PanelManager {
       try {
         streamResult = await streamText({
           model: modelToUse,
-          prompt: userMessage,
+          // Send combined prompt to model, but use original text for history
+          prompt: userMessageText, 
           tools: tools,
           async onChunk({ chunk }) {
             // console.log('CHUNK:', chunk); // Debugging
@@ -776,6 +844,9 @@ export class PanelManager {
           `AI Stream Request Failed: ${streamError instanceof Error ? streamError.message : String(streamError)}`,
           "sendMessage",
         );
+        // ** Save session even if stream fails? Or only on success? **
+        // Consider saving here to capture the user message at least
+        await this.sessionManager.saveSession(this.currentSessionId);
         return;
       }
 
@@ -808,6 +879,62 @@ export class PanelManager {
         command: "aiResponseComplete",
         payload: { id: streamId },
       });
+
+      // --- After AI response is complete ---
+      // Add AI response and tool results/calls to messages array and save
+      if (streamResult) {
+          try {
+              // Get the final assistant message content
+              const assistantContent = await streamResult.text;
+              if (assistantContent) {
+                 sessionState.messages.push({ 
+                     id: uuidv4(), // Add unique ID
+                     role: 'assistant',
+                     content: assistantContent 
+                 });
+              }
+
+              // Handle tool calls and results
+              const toolCalls = await streamResult.toolCalls;
+              const toolResults = await streamResult.toolResults;
+
+              // Vercel SDK Message type can handle tool_calls and tool_results roles directly
+              // Assuming toolCalls/toolResults are structured appropriately
+              if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+                 sessionState.messages.push({ 
+                    id: uuidv4(), // Add unique ID
+                    role: 'assistant', // Tool calls are from assistant
+                    content: '', // Content might be empty for tool calls
+                    toolCalls: toolCalls // Use the dedicated property
+                 }); 
+              }
+              if (Array.isArray(toolResults) && toolResults.length > 0) {
+                 sessionState.messages.push({ 
+                    id: uuidv4(), // Add unique ID
+                    role: 'tool', // Use 'tool' role for results
+                    content: '', // Content might be empty for tool results
+                    toolResults: toolResults // Use the dedicated property
+                 });
+              }
+          } catch (resultProcessingError) {
+              logger.error(`[${streamId}] Error processing stream final result:`, resultProcessingError);
+              sessionState.messages.push({ 
+                  id: uuidv4(), // Add unique ID
+                  role: 'assistant',
+                  content: "[Error processing final response]" 
+              });
+          }
+      } else {
+          sessionState.messages.push({ 
+              id: uuidv4(), // Add unique ID
+              role: 'assistant',
+              content: "[Error: No response stream result]" 
+          });
+      }
+      
+      // ** Save the updated session state **
+      await this.sessionManager.saveSession(this.currentSessionId); 
+      // --- End Example ---
     } catch (error: unknown) {
       const errorMsg = `AI Request Failed: ${error instanceof Error ? error.message : String(error)}`;
       logger.error("Error processing AI request:", error);
@@ -966,4 +1093,22 @@ export class PanelManager {
         }
     }
   }
+
+  // Example: Method to add assistant to current session
+  public async addAssistantToCurrentSession(assistantId: string): Promise<void> {
+      if (!this.currentSessionId) {
+          logger.warn("Cannot add assistant: No active session.");
+          return;
+      }
+      const sessionState = this.sessionManager.getSession(this.currentSessionId);
+      if (sessionState && !sessionState.activeAssistantIds.includes(assistantId)) {
+          sessionState.activeAssistantIds.push(assistantId);
+          this.currentAssistants = sessionState.activeAssistantIds; // Update local copy
+          await this.sessionManager.saveSession(this.currentSessionId);
+          logger.info(`Added assistant ${assistantId} to session ${this.currentSessionId}`);
+          // TODO: Notify webview?
+      }
+  }
+
+  // TODO: Add removeAssistantFromCurrentSession
 }
