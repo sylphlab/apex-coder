@@ -87,7 +87,6 @@
     {
         "label": "Start Full Dev Watch",
         "dependsOn": [
-            "npm: compile", // Run compile first
             "npm: watch:esbuild",
             "npm: watch:tsc",
             "npm: watch:vite"
