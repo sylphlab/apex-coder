@@ -65,8 +65,7 @@
       "presentation": {
         "reveal": "always", 
         "panel": "shared",
-        "group": "watchTasks",
-        "close": true
+        "group": "watchTasks"
       },
       "detail": "vite development server",
       "options": {

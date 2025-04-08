@@ -1,4 +1,5 @@
 packages:
+  - "minminimal-react-app"
   # include packages in subfolders (e.g., webview-ui)
   - 'webview-ui'
   # include root package.json

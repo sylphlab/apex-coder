@@ -16,8 +16,6 @@
 			"request": "launch",
 			"args": [ "--extensionDevelopmentPath=${workspaceFolder}" ],
 			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ],
-			"preLaunchTask": "Start Backend Watch", // Point to backend watch meta task
-			"postDebugTask": "Run: Show Panel"
 		}
 	],
 	"compounds": [] // Keep compounds empty

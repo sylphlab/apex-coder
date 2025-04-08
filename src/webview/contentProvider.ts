@@ -5,7 +5,8 @@ import { logger } from '../utils/logger';
 
 // --- Development Flag & Settings ---
 // Development Flag & Settings --- (Removed IS_DEVELOPMENT constant)
-const DEV_SERVER_URL = 'http://127.0.0.1:5173'; // Still needed for compilation
+const DEV_SERVER_URL = 'http://127.0.0.1:5173'; // Restore hardcoded URL
+// const DEFAULT_VITE_PORT = 5173; // Remove default port variable
 
 /**
  * Generates the HTML content for the webview panel.
@@ -16,35 +17,68 @@ const DEV_SERVER_URL = 'http://127.0.0.1:5173'; // Still needed for compilation
  */
 export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, extensionMode: vscode.ExtensionMode): string {
     const nonce = getNonce();
-    const isDevelopment = extensionMode === vscode.ExtensionMode.Development;
+    const isDevelopment = extensionMode === vscode.ExtensionMode.Development; // Restore original check
+    // Reverted: Force production mode logic even during development to bypass Vite dev server issues
+    // const isDevelopment = false;
 
     if (isDevelopment) {
         logger.info('Generating webview content for DEVELOPMENT (Vite dev server)...');
-        // In development, we need to allow connections to the Vite dev server
-        // Note: Looser CSP for development convenience.
-        const cspSource = webview.cspSource;
-        const devServerHttpUri = DEV_SERVER_URL.replace(/^http:/, 'http:').replace(/^https:/, 'https:');
-        const devServerWsUri = DEV_SERVER_URL.replace(/^http/, 'ws');
+
+		let localPort = "5173"; // Default fallback
+		try {
+			const fs = require("fs");
+			const path = require("path");
+			const portFilePath = path.resolve(__dirname, "../.vite-port");
+
+			if (fs.existsSync(portFilePath)) {
+				localPort = fs.readFileSync(portFilePath, "utf8").trim();
+				console.log(`[Apex Coder] Vite port read from file: ${localPort}`);
+			} else {
+				console.log(`[Apex Coder] Vite port file not found. Using default port: ${localPort}`);
+			}
+		} catch (err) {
+			console.error("[Apex Coder] Error reading Vite port file:", err);
+			// Continue with default port if file reading fails
+		}
+
+        // Removed dynamic port reading logic
+        const localServerUrl = 'localhost:' + localPort; // Use hardcoded URL
+        const devServerHttpUri = 'http://localhost:' + localPort; // Use hardcoded URL
+
+		const csp = [
+			"default-src 'none'",
+			`font-src ${webview.cspSource}`,
+			`style-src ${webview.cspSource} 'unsafe-inline' https://* http://${localServerUrl} http://0.0.0.0:${localPort}`,
+			`img-src ${webview.cspSource} data:`,
+			`script-src 'unsafe-eval' ${webview.cspSource} https://* https://*.posthog.com http://${localServerUrl} http://0.0.0.0:${localPort} 'nonce-${nonce}'`,
+			`connect-src https://* https://*.posthog.com ws://${localServerUrl} ws://0.0.0.0:${localPort} http://${localServerUrl} http://0.0.0.0:${localPort}`,
+		];
+
+		const reactRefresh = /*html*/ `
+			<script nonce="${nonce}" type="module">
+				import RefreshRuntime from "http://localhost:${localPort}/@react-refresh"
+				RefreshRuntime.injectIntoGlobalHook(window)
+				window.$RefreshReg$ = () => {}
+				window.$RefreshSig$ = () => (type) => type
+				window.__vite_plugin_react_preamble_installed__ = true
+			</script>
+		`;
+
 
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <meta http-equiv="Content-Security-Policy" content="
-                default-src 'none';
-                connect-src ${cspSource} ${devServerHttpUri} ${devServerWsUri};
-                img-src ${cspSource} ${devServerHttpUri} data:;
-                script-src 'nonce-${nonce}' ${devServerHttpUri} 'unsafe-eval';
-                style-src ${cspSource} ${devServerHttpUri} 'unsafe-inline';
-                font-src ${cspSource} ${devServerHttpUri};
-            ">
+            <meta http-equiv="Content-Security-Policy" content="${csp.join("; ")}">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Apex Coder (Dev)</title>
-            <script type="module" nonce="${nonce}" src="${DEV_SERVER_URL}/@vite/client"></script>
-            <script type="module" nonce="${nonce}" src="${DEV_SERVER_URL}/src/main.ts"></script>
+            <script type="module" nonce="${nonce}" src="${devServerHttpUri}/@vite/client"></script>
+            <script type="module" nonce="${nonce}" src="${devServerHttpUri}/src/main.tsx"></script>
         </head>
         <body>
-            <div id="app"></div>
+            <div id="app">
+				${reactRefresh}
+            </div>
         </body>
         </html>`;
     } else {
@@ -60,7 +94,8 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         let html = fs.readFileSync(indexPath.fsPath, 'utf8');
 
         // Replace asset paths with webview URIs
-        html = html.replace(/(href|src)="(\/assets\/[^\"\?]+)(\?[^\"]*)?"/g, (match, p1Attribute, p2Path, p3Query) => {
+        // Use a more general regex to capture all root-relative paths starting with /
+        html = html.replace(/(href|src)="(\/[^\"\?]+)(\?[^\"]*)?"/g, (match, p1Attribute, p2Path, p3Query) => {
             const assetPath = p2Path.substring(1); // Remove leading slash
             const assetUri = webview.asWebviewUri(vscode.Uri.joinPath(buildPath, assetPath));
             // logger.info(`Replacing asset path: ${p2Path} -> ${assetUri}`);

@@ -1,4 +1,4 @@
-<!-- Version: 1.33 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
+<!-- Version: 1.40 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
@@ -64,10 +64,12 @@
     *   Updated related files (`extension.ts`, `panelManager.ts`, tests) to work with the new architecture.
 26. **Completed:** Provider-first architecture implemented.
 27. **Implemented (Frontend):** Migrated WebView UI state management (for configuration) from props/emits to Pinia (`configStore.ts`). Refactored `App.vue`, `SetupView.vue`, and `ChatView.vue` to use the store. This resolves the provider selection issue reported by the user.
-28. **Paused Task:** Fixing errors in `minimal-react-app/src/main.jsx` is paused pending the addition of `.roo/system-prompt-code`.
-29. **Current Task:** Refine secure API key handling.
-    *   **Analysis:** Reviewed `src/extension.ts`. Current logic checks for missing keys on activation but only logs a warning. `setApiKey` command handles setup.
-    *   **Plan:** Modify activation logic in `src/extension.ts` to show a `showWarningMessage` with an action button to trigger `COMMAND_SET_API_KEY` if a required key is missing.
+28. **Task Interrupted & Switched:** User redirected focus back to fixing errors in `minimal-react-app/src/main.jsx`. Previous task (analyzing core tools) is paused.
+29. **Current Task:** Fix errors in `minimal-react-app/src/main.jsx`.
+    *   **Errors:** `require is not defined` for CSS imports, `ReactDOM.render is not a function`.
+    *   **Plan:** Read `main.jsx`, apply fixes for CSS imports (use `import`) and React DOM rendering (use `createRoot`).
+    *   **Note:** Prerequisite `.roo/system-prompt-code` is still missing. Proceeding with this specific fix as requested, but the file is needed for future code generation/modification tasks.
+    *   **Next Step:** Read `minimal-react-app/src/main.jsx`.
 
 **Decisions Made:**
 - Project Name: Apex Coder
