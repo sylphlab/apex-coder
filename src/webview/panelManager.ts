@@ -49,13 +49,16 @@ export class PanelManager {
     private static currentPanel: vscode.WebviewPanel | undefined;
     private readonly extensionUri: vscode.Uri;
     private readonly context: vscode.ExtensionContext;
-    private readonly extensionMode: vscode.ExtensionMode; // Store the mode
+    private readonly extensionMode: vscode.ExtensionMode;
+    private readonly workspaceRootPath: string | undefined;
     private isModelInitialized: boolean = false;
 
-    constructor(context: vscode.ExtensionContext, extensionMode: vscode.ExtensionMode) { // Add extensionMode parameter
+    constructor(context: vscode.ExtensionContext, extensionMode: vscode.ExtensionMode, workspaceRootPath: string | undefined) {
         this.extensionUri = context.extensionUri;
         this.context = context;
-        this.extensionMode = extensionMode; // Assign it
+        this.extensionMode = extensionMode;
+        this.workspaceRootPath = workspaceRootPath;
+        logger.info(`PanelManager initialized with workspaceRootPath: ${this.workspaceRootPath ?? 'undefined'}`);
     }
 
     /**
@@ -87,7 +90,12 @@ export class PanelManager {
         );
         logger.info('Created new panel.');
 
-        PanelManager.currentPanel.webview.html = getWebviewContent(PanelManager.currentPanel.webview, this.extensionUri, this.extensionMode); // Pass extensionMode here
+        PanelManager.currentPanel.webview.html = getWebviewContent(
+            PanelManager.currentPanel.webview,
+            this.extensionUri,
+            this.extensionMode,
+            this.workspaceRootPath
+        );
         logger.info('Set panel HTML content.');
 
         // Set up message listener

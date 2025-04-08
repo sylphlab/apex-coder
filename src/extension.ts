@@ -3,6 +3,7 @@ import { PanelManager } from './webview/panelManager';
 import { logger } from './utils/logger';
 import { COMMAND_SET_API_KEY, COMMAND_SHOW_PANEL, SECRET_API_KEY_PREFIX } from './utils/constants';
 import { ProviderService } from './ai-sdk/providerService';
+import * as path from 'path'; // Import path for potential use later if needed
 
 let panelManager: PanelManager | undefined;
 
@@ -14,8 +15,21 @@ let panelManager: PanelManager | undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	logger.info('Activating Apex Coder extension...');
 
-	// Initialize the Panel Manager
-	panelManager = new PanelManager(context, context.extensionMode); // Pass extensionMode here
+	// --- Determine Workspace Root using context.extensionPath (reliable in dev mode) ---
+	const workspaceRootPath: string | undefined = context.extensionPath;
+	if (workspaceRootPath) {
+		logger.info(`Using workspace root from context.extensionPath: ${workspaceRootPath}`);
+	} else {
+		// This case is highly unlikely in standard extension loading scenarios
+		logger.error('context.extensionPath is undefined during activation. Cannot determine workspace root.');
+		// Handle error - showing a message is probably best
+		vscode.window.showErrorMessage("Apex Coder could not determine its installation path.");
+		return; // Stop activation if path is missing
+	}
+	// --- End Determine Workspace Root ---
+
+	// Initialize the Panel Manager, passing the determined workspace root path
+	panelManager = new PanelManager(context, context.extensionMode, workspaceRootPath); // Pass workspaceRootPath
 
 	// --- Check for missing API Key on activation ---
 	try {

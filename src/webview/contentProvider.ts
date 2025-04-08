@@ -12,9 +12,16 @@ const DEFAULT_DEV_PORT = 5173;
  * Handles loading from Vite dev server in development or from the build output in production.
  * @param webview The webview instance.
  * @param extensionUri The extension's root URI.
+ * @param extensionMode The current VS Code extension mode (Development or Production).
+ * @param workspaceRootPath The determined workspace root path (passed from PanelManager).
  * @returns The HTML string for the webview.
  */
-export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, extensionMode: vscode.ExtensionMode): string {
+export function getWebviewContent(
+    webview: vscode.Webview,
+    extensionUri: vscode.Uri,
+    extensionMode: vscode.ExtensionMode,
+    workspaceRootPath: string | undefined
+): string {
     const nonce = getNonce();
     const isDevelopment = extensionMode === vscode.ExtensionMode.Development;
 
@@ -22,24 +29,33 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         logger.info('Generating webview content for DEVELOPMENT (Vite dev server).');
 
         let devPort = DEFAULT_DEV_PORT;
-        // Construct the path to the .vite.port file in the workspace root
-        const portFilePath = path.join(extensionUri.fsPath, '..', '.vite.port'); // Go up one level from extension root
+        let portFilePath = '';
 
-        try {
-            if (fs.existsSync(portFilePath)) {
-                const portFileContent = fs.readFileSync(portFilePath, 'utf8').trim();
-                const parsedPort = parseInt(portFileContent, 10);
-                if (!isNaN(parsedPort) && parsedPort > 0 && parsedPort < 65536) {
-                    devPort = parsedPort;
-                    logger.info(`Successfully read Vite dev server port ${devPort} from ${portFilePath}`);
+        // Use the workspace root path passed from PanelManager
+        if (workspaceRootPath) {
+             portFilePath = path.join(workspaceRootPath, '.vite.port');
+             logger.info(`Using workspace root path provided by PanelManager: ${workspaceRootPath}`);
+             logger.info(`Looking for .vite.port file at: ${portFilePath}`);
+
+            try {
+                if (fs.existsSync(portFilePath)) {
+                    const portFileContent = fs.readFileSync(portFilePath, 'utf8').trim();
+                    const parsedPort = parseInt(portFileContent, 10);
+                    if (!isNaN(parsedPort) && parsedPort > 0 && parsedPort < 65536) {
+                        devPort = parsedPort;
+                        logger.info(`Successfully read Vite dev server port ${devPort} from ${portFilePath}`);
+                    } else {
+                        logger.warn(`Invalid port number "${portFileContent}" found in ${portFilePath}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
+                    }
                 } else {
-                    logger.warn(`Invalid port number "${portFileContent}" found in ${portFilePath}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
+                    logger.warn(`.vite.port file not found at ${portFilePath}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
                 }
-            } else {
-                logger.warn(`.vite.port file not found at ${portFilePath}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
+            } catch (error) {
+                logger.error(`Error reading or parsing ${portFilePath}: ${error}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
             }
-        } catch (error) {
-            logger.error(`Error reading or parsing ${portFilePath}: ${error}. Falling back to default port ${DEFAULT_DEV_PORT}.`);
+        } else {
+             // This case should ideally not happen if activation logic is correct, but good to handle.
+             logger.error('Workspace root path was not provided to getWebviewContent. Cannot locate .vite.port. Falling back to default port.');
         }
 
         const devServerBaseUrl = `http://127.0.0.1:${devPort}`;
@@ -49,19 +65,20 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         // In development, we need to allow connections to the Vite dev server
         // Note: Looser CSP for development convenience.
         const cspSource = webview.cspSource;
+        const csp = `
+            default-src 'none';
+            connect-src ${cspSource} ${devServerHttpUri} ${devServerWsUri};
+            img-src ${cspSource} ${devServerHttpUri} data:;
+            script-src 'nonce-${nonce}' ${devServerHttpUri} 'unsafe-eval'; /* unsafe-eval for HMR */
+            style-src ${cspSource} ${devServerHttpUri} 'unsafe-inline'; /* unsafe-inline for HMR and dynamic styles */
+            font-src ${cspSource} ${devServerHttpUri};
+        `.replace(/\s{2,}/g, ' ').trim(); // Format CSP string properly
 
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <meta http-equiv="Content-Security-Policy" content="
-                default-src 'none';
-                connect-src ${cspSource} ${devServerHttpUri} ${devServerWsUri};
-                img-src ${cspSource} ${devServerHttpUri} data:;
-                script-src 'nonce-${nonce}' ${devServerHttpUri} 'unsafe-eval'; /* Keep unsafe-eval for HMR */
-                style-src ${cspSource} ${devServerHttpUri} 'unsafe-inline';
-                font-src ${cspSource} ${devServerHttpUri};
-            ">
+            <meta http-equiv="Content-Security-Policy" content="${csp}">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Apex Coder (Dev)</title>
             <script type="module" nonce="${nonce}" src="${devServerHttpUri}/@vite/client"></script>
