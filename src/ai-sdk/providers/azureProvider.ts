@@ -1,19 +1,16 @@
-import type { LanguageModel } from "ai";
-import { BaseAIProvider } from "./baseProvider";
-import { logger } from "../../utils/logger";
+import type { LanguageModel } from 'ai';
+import { BaseAIProvider } from './baseProvider.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Azure OpenAI provider implementation
  */
 export class AzureProvider extends BaseAIProvider {
   constructor() {
-    super("azure");
+    super('azure');
   }
 
-  async createModel(
-    modelId: string,
-    credentials: Record<string, unknown>,
-  ): Promise<LanguageModel> {
+  async createModel(modelId: string, credentials: Record<string, unknown>): Promise<LanguageModel> {
     try {
       // Explicitly type credentials
       const apiKey = credentials.apiKey as string | undefined;
@@ -21,14 +18,14 @@ export class AzureProvider extends BaseAIProvider {
       const deploymentName = credentials.deploymentName as string | undefined;
 
       if (!apiKey) {
-        throw new Error("API key is required for Azure OpenAI");
+        throw new Error('API key is required for Azure OpenAI');
       }
       if (!baseUrl) {
-        throw new Error("Base URL is required for Azure OpenAI");
+        throw new Error('Base URL is required for Azure OpenAI');
       }
 
       // Import the Azure SDK
-      const { createAzure } = await import("@ai-sdk/azure");
+      const { createAzure } = await import('@ai-sdk/azure');
 
       // Prepare options with known types
       const options: {
@@ -50,31 +47,23 @@ export class AzureProvider extends BaseAIProvider {
       // Return the model instance
       return provider(modelId);
     } catch (error: unknown) {
-      logger.error("Failed to create Azure OpenAI model:", error);
+      logger.error('Failed to create Azure OpenAI model:', error);
       throw new Error(
         `Failed to create Azure OpenAI model: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
-  // Keeping async to match BaseAIProvider interface, even if currently static
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async getAvailableModels(
-    _credentials?: Record<string, unknown>,
-  ): Promise<string[]> {
-    logger.info("Returning static list of Azure OpenAI models.");
-    return [
-      "gpt-4o",
-      "gpt-4",
-      "gpt-4-turbo",
-      "gpt-35-turbo",
-      "text-embedding-ada-002",
-    ];
+  async getAvailableModels(credentials?: Record<string, unknown>): Promise<string[]> {
+    if (credentials) {
+      // Validate credentials even though we don't use them for the static list
+      await this.validateCredentials(credentials);
+    }
+    logger.info('Returning static list of Azure OpenAI models.');
+    return ['gpt-4o', 'gpt-4', 'gpt-4-turbo', 'gpt-35-turbo', 'text-embedding-ada-002'];
   }
 
-  async validateCredentials(
-    credentials: Record<string, unknown>,
-  ): Promise<boolean> {
+  async validateCredentials(credentials: Record<string, unknown>): Promise<boolean> {
     try {
       // Explicitly type credentials
       const apiKey = credentials.apiKey as string | undefined;
@@ -86,7 +75,7 @@ export class AzureProvider extends BaseAIProvider {
       }
 
       // Try to create a provider instance with the credentials
-      const { createAzure } = await import("@ai-sdk/azure");
+      const { createAzure } = await import('@ai-sdk/azure');
       const options: {
         apiKey: string;
         baseUrl: string;
@@ -105,13 +94,13 @@ export class AzureProvider extends BaseAIProvider {
       logger.info(`Azure provider initialized successfully (simulated).`);
       return true;
     } catch (error: unknown) {
-      logger.error("Failed to validate Azure OpenAI credentials:", error);
+      logger.error('Failed to validate Azure OpenAI credentials:', error);
       return false;
     }
   }
 
   getRequiredCredentialFields(): string[] {
-    return ["apiKey", "baseUrl"];
+    return ['apiKey', 'baseUrl'];
   }
 }
 

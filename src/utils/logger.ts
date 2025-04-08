@@ -1,4 +1,4 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
 /**
  * Simple logger implementation.
@@ -6,22 +6,29 @@ import * as vscode from "vscode";
  */
 // Use simple exported functions instead of namespace
 
-export function info(message: string, ...optionalParams: unknown[]): void {
-  console.info(`[INFO] ${message}`, ...optionalParams); // Use console.info
-  // TODO: Implement writing to VS Code OutputChannel if desired
-  // Example: getOutputChannel().appendLine(`[INFO] ${message} ${optionalParams.map(p => String(p)).join(' ')}`);
+let outputChannel: vscode.OutputChannel;
+
+function getOutputChannel(): vscode.OutputChannel {
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel('Apex Coder');
+  }
+  return outputChannel;
 }
 
-export function warn(message: string, ...optionalParams: unknown[]): void {
-  console.warn(`[WARN] ${message}`, ...optionalParams);
-  // Use void to handle floating promise from showWarningMessage
+export function info(message: string, ...optionalParameters: unknown[]): void {
+  const fullMessage = `[INFO] ${message} ${optionalParameters.map(p => String(p)).join(' ')}`;
+  getOutputChannel().appendLine(fullMessage);
+}
+
+export function warn(message: string, ...optionalParameters: unknown[]): void {
+  const fullMessage = `[WARN] ${message} ${optionalParameters.map(p => String(p)).join(' ')}`;
+  getOutputChannel().appendLine(fullMessage);
   void vscode.window.showWarningMessage(message);
 }
 
-export function error(message: string, ...optionalParams: unknown[]): void {
-  console.error(`[ERROR] ${message}`, ...optionalParams);
-  // Avoid showing raw error details in message box for security/UX
-  // Use void to handle floating promise from showErrorMessage
+export function error(message: string, ...optionalParameters: unknown[]): void {
+  const fullMessage = `[ERROR] ${message} ${optionalParameters.map(p => String(p)).join(' ')}`;
+  getOutputChannel().appendLine(fullMessage);
   void vscode.window.showErrorMessage(
     `Apex Coder Error: ${message}. Check console/logs for details.`,
   );

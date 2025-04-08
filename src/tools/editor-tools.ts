@@ -1,11 +1,10 @@
-import * as vscode from "vscode";
-import { z } from "zod";
-import { handleToolError, postToolResult } from "./coreTools";
-import type { OpenFileResult } from "./coreTools";
+import * as vscode from 'vscode';
+import { z } from 'zod';
+import { handleToolError, postToolResult, type OpenFileResult } from './core-tools.ts';
 
 // Zod schema for the parameters
-const OpenFileParams = z.object({
-  path: z.string().describe("The absolute or relative path to the file."),
+const OpenFileParameters = z.object({
+  path: z.string().describe('The absolute or relative path to the file.'),
 });
 
 /**
@@ -15,35 +14,30 @@ const OpenFileParams = z.object({
  * @returns A promise resolving to an object indicating success or failure.
  */
 async function executeOpenFile(
-  args: z.infer<typeof OpenFileParams>,
+  arguments_: z.infer<typeof OpenFileParameters>,
   panel: vscode.WebviewPanel | undefined,
 ): Promise<OpenFileResult> {
-  const toolName = "openFile";
+  const toolName = 'openFile';
   try {
-    const uri = vscode.Uri.file(args.path);
+    const uri = vscode.Uri.file(arguments_.path);
     const document = await vscode.workspace.openTextDocument(uri);
     await vscode.window.showTextDocument(document);
     const result: OpenFileResult = {
       toolName,
       success: true,
-      message: `Successfully opened file: ${args.path}`,
-      path: args.path,
+      message: `Successfully opened file: ${arguments_.path}`,
+      path: arguments_.path,
     };
     postToolResult(panel, result);
     return result;
   } catch (error) {
-    return handleToolError(
-      error,
-      toolName,
-      panel,
-      args,
-    ) as unknown as OpenFileResult;
+    return handleToolError(error, toolName, panel, arguments_) as unknown as OpenFileResult;
   }
 }
 
 // Tool definition
 export const openFileToolDefinition = {
-  description: "Opens a specified file in the editor.",
-  parameters: OpenFileParams,
+  description: 'Opens a specified file in the editor.',
+  parameters: OpenFileParameters,
   execute: executeOpenFile,
 };

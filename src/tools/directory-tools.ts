@@ -1,26 +1,21 @@
-import { z } from "zod";
-import * as vscode from "vscode";
-import { logger } from "../utils/logger";
+import { z } from 'zod';
+import * as vscode from 'vscode';
+import { logger } from '../utils/logger.js';
 import type {
   FilesystemResultPayload,
   ListDirectoryResult,
   DirectoryActionResult,
   ToolResultPayload,
-} from "./coreTools";
-import { postToolResult, handleToolError } from "./coreTools";
+} from './coreTools';
+import { postToolResult, handleToolError } from './coreTools';
 
 /**
  * Lists directory contents.
  */
 export const listDirectoryToolDefinition = {
-  description:
-    "Lists contents (files and subdirectories) of a specified directory.",
+  description: 'Lists contents (files and subdirectories) of a specified directory.',
   parameters: z.object({
-    path: z
-      .string()
-      .describe(
-        'Directory path relative to workspace root (e.g., "src/utils")',
-      ),
+    path: z.string().describe('Directory path relative to workspace root (e.g., "src/utils")'),
     // recursive: z.boolean().default(false).describe('List recursively (Not yet implemented)') // Keep recursive param but note limitation
   }),
   /**
@@ -30,22 +25,22 @@ export const listDirectoryToolDefinition = {
    * @returns An object indicating success or failure, including the list of items for the AI model.
    */
   async execute(
-    args: { path: string /*, recursive: boolean*/ },
+    arguments_: { path: string /*, recursive: boolean*/ },
     currentPanel?: vscode.WebviewPanel,
   ): Promise<ListDirectoryResult> {
-    const toolName = "listDirectory";
-    const { path: relativePath /*, recursive*/ } = args;
+    const toolName = 'listDirectory';
+    const { path: relativePath /*, recursive*/ } = arguments_;
     // const recursiveInfo = recursive ? ' (recursive)' : ''; // Add back when implemented
     logger.info(`[Tool] Executing listDirectory: ${relativePath}`);
 
     try {
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders?.length) {
-        throw new Error("No workspace folder open");
+        throw new Error('No workspace folder open');
       }
       const rootUri = workspaceFolders[0].uri;
       const absolutePath =
-        relativePath === "." || relativePath === ""
+        relativePath === '.' || relativePath === ''
           ? rootUri // Handle root case
           : vscode.Uri.joinPath(rootUri, relativePath);
 
@@ -56,8 +51,8 @@ export const listDirectoryToolDefinition = {
       } catch (statError: unknown) {
         if (
           (statError instanceof Error &&
-            (statError as vscode.FileSystemError).code === "FileNotFound") ||
-          (statError as vscode.FileSystemError).code === "EntryNotFound"
+            (statError as vscode.FileSystemError).code === 'FileNotFound') ||
+          (statError as vscode.FileSystemError).code === 'EntryNotFound'
         ) {
           throw new Error(`Directory not found at path: ${relativePath}`);
         }
@@ -77,25 +72,25 @@ export const listDirectoryToolDefinition = {
       const formattedItems = items.map(([name, type]) => {
         const itemType =
           type === vscode.FileType.Directory
-            ? "directory"
+            ? 'directory'
             : type === vscode.FileType.File
-              ? "file"
-              : "other";
+              ? 'file'
+              : 'other';
         return {
           name,
-          type: itemType as 'directory' | 'file' | 'other', // Explicitly cast type again
+          type: itemType, // Explicitly cast type again
         };
       });
 
-      const successMsg = `Successfully listed directory: ${relativePath}`;
-      logger.info(`[Tool] ${successMsg}`);
+      const successMessage = `Successfully listed directory: ${relativePath}`;
+      logger.info(`[Tool] ${successMessage}`);
 
       // Post result to webview - Note: FilesystemResultPayload no longer has 'items'
       // We might need a different payload type or adjust this if webview needs the list.
       const postPayload: Omit<FilesystemResultPayload, 'items'> & { itemsDescription?: string } = {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
         // items: formattedItems.map( // Cannot assign to postPayload now
         //   (item) => `${item.name}${item.type === "directory" ? "/" : ""}`,
@@ -109,7 +104,7 @@ export const listDirectoryToolDefinition = {
       const result: ListDirectoryResult = {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
         items: formattedItems,
         isDirectory: true,
@@ -120,12 +115,12 @@ export const listDirectoryToolDefinition = {
         error,
         toolName,
         currentPanel,
-        args,
+        arguments_,
       ) as unknown as ListDirectoryResult;
       return {
         toolName: toolName,
         success: false,
-        message: errorResult.message || "Failed to list directory.",
+        message: errorResult.message || 'Failed to list directory.',
         path: relativePath,
         items: [],
         error: errorResult.error,
@@ -139,8 +134,7 @@ export const listDirectoryToolDefinition = {
  * Creates a directory.
  */
 export const createDirectoryToolDefinition = {
-  description:
-    "Creates a directory, including any necessary parent directories.",
+  description: 'Creates a directory, including any necessary parent directories.',
   parameters: z.object({
     path: z
       .string()
@@ -155,17 +149,17 @@ export const createDirectoryToolDefinition = {
    * @returns An object indicating success or failure for the AI model.
    */
   async execute(
-    args: { path: string },
+    arguments_: { path: string },
     currentPanel?: vscode.WebviewPanel,
   ): Promise<DirectoryActionResult> {
-    const toolName = "createDirectory";
-    const { path: relativePath } = args;
+    const toolName = 'createDirectory';
+    const { path: relativePath } = arguments_;
     logger.info(`[Tool] Executing createDirectory: ${relativePath}`);
 
     try {
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders?.length) {
-        throw new Error("No workspace folder open");
+        throw new Error('No workspace folder open');
       }
       const rootUri = workspaceFolders[0].uri;
       const absolutePath = vscode.Uri.joinPath(rootUri, relativePath);
@@ -176,12 +170,12 @@ export const createDirectoryToolDefinition = {
         // If stat succeeds, path exists. Check if it's a directory.
         if (stat.type === vscode.FileType.Directory) {
           // Directory already exists - arguably success or at least not an error
-          const warnMsg = `Directory already exists: ${relativePath}`;
-          logger.warn(`[Tool] ${warnMsg}`);
+          const warnMessage = `Directory already exists: ${relativePath}`;
+          logger.warn(`[Tool] ${warnMessage}`);
           const resultPayload: FilesystemResultPayload = {
             toolName: toolName,
             success: true, // Treat as success
-            message: warnMsg,
+            message: warnMessage,
             path: relativePath,
             isDirectory: true,
           };
@@ -189,20 +183,18 @@ export const createDirectoryToolDefinition = {
           return {
             toolName: toolName,
             success: true,
-            message: "Directory already exists.",
+            message: 'Directory already exists.',
             path: relativePath,
           };
         } else {
           // Exists but is not a directory (e.g., a file)
-          throw new Error(
-            `Path "${relativePath}" already exists but is not a directory.`,
-          );
+          throw new Error(`Path "${relativePath}" already exists but is not a directory.`);
         }
       } catch (statError: unknown) {
         if (
           statError instanceof Error &&
-          (statError as vscode.FileSystemError).code !== "FileNotFound" &&
-          (statError as vscode.FileSystemError).code !== "EntryNotFound"
+          (statError as vscode.FileSystemError).code !== 'FileNotFound' &&
+          (statError as vscode.FileSystemError).code !== 'EntryNotFound'
         ) {
           throw statError; // Re-throw unexpected errors
         }
@@ -211,12 +203,12 @@ export const createDirectoryToolDefinition = {
 
       await vscode.workspace.fs.createDirectory(absolutePath); // createDirectory is recursive
 
-      const successMsg = `Successfully created directory: ${relativePath}`;
-      logger.info(`[Tool] ${successMsg}`);
+      const successMessage = `Successfully created directory: ${relativePath}`;
+      logger.info(`[Tool] ${successMessage}`);
       const resultPayload: FilesystemResultPayload = {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
         isDirectory: true,
       };
@@ -224,7 +216,7 @@ export const createDirectoryToolDefinition = {
       return {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
       };
     } catch (error) {
@@ -232,12 +224,12 @@ export const createDirectoryToolDefinition = {
         error,
         toolName,
         currentPanel,
-        args,
+        arguments_,
       ) as unknown as DirectoryActionResult;
       return {
         toolName: toolName,
         success: false,
-        message: errorResult.message || "Failed to create directory.",
+        message: errorResult.message || 'Failed to create directory.',
         path: relativePath,
         error: errorResult.error,
       };
@@ -249,8 +241,7 @@ export const createDirectoryToolDefinition = {
  * Deletes a directory (recursively).
  */
 export const deleteDirectoryToolDefinition = {
-  description:
-    "Deletes a directory and all its contents recursively. Use with extreme caution!",
+  description: 'Deletes a directory and all its contents recursively. Use with extreme caution!',
   parameters: z.object({
     path: z
       .string()
@@ -265,39 +256,32 @@ export const deleteDirectoryToolDefinition = {
    * @returns An object indicating success or failure for the AI model.
    */
   async execute(
-    args: { path: string },
+    arguments_: { path: string },
     currentPanel?: vscode.WebviewPanel,
   ): Promise<DirectoryActionResult> {
-    const toolName = "deleteDirectory";
-    const { path: relativePath } = args;
-    logger.warn(
-      `[Tool] Executing deleteDirectory (recursive): ${relativePath}`,
-    ); // Log as warning due to destructive nature
+    const toolName = 'deleteDirectory';
+    const { path: relativePath } = arguments_;
+    logger.warn(`[Tool] Executing deleteDirectory (recursive): ${relativePath}`); // Log as warning due to destructive nature
 
     // Basic safety check: prevent deleting root or very short paths accidentally
-    if (
-      !relativePath ||
-      relativePath === "." ||
-      relativePath === "/" ||
-      relativePath.length < 3
-    ) {
-      const errMsg = `Safety check failed: Attempted to delete potentially dangerous path "${relativePath}". Operation aborted.`;
-      logger.error(`[Tool] ${errMsg}`);
-      vscode.window.showErrorMessage(errMsg);
+    if (!relativePath || relativePath === '.' || relativePath === '/' || relativePath.length < 3) {
+      const errorMessage = `Safety check failed: Attempted to delete potentially dangerous path "${relativePath}". Operation aborted.`;
+      logger.error(`[Tool] ${errorMessage}`);
+      vscode.window.showErrorMessage(errorMessage);
       const resultPayload: FilesystemResultPayload = {
         toolName: toolName,
         success: false,
-        message: errMsg,
+        message: errorMessage,
         path: relativePath,
-        error: "Safety check failed",
+        error: 'Safety check failed',
       };
       postToolResult(currentPanel, resultPayload);
       const result: DirectoryActionResult = {
         toolName: toolName,
         success: false,
-        message: errMsg,
+        message: errorMessage,
         path: relativePath,
-        error: "Safety check failed",
+        error: 'Safety check failed',
       };
       return result;
     }
@@ -305,7 +289,7 @@ export const deleteDirectoryToolDefinition = {
     try {
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders?.length) {
-        throw new Error("No workspace folder open");
+        throw new Error('No workspace folder open');
       }
       const rootUri = workspaceFolders[0].uri;
       const absolutePath = vscode.Uri.joinPath(rootUri, relativePath);
@@ -319,8 +303,8 @@ export const deleteDirectoryToolDefinition = {
       } catch (statError: unknown) {
         if (
           (statError instanceof Error &&
-            (statError as vscode.FileSystemError).code === "FileNotFound") ||
-          (statError as vscode.FileSystemError).code === "EntryNotFound"
+            (statError as vscode.FileSystemError).code === 'FileNotFound') ||
+          (statError as vscode.FileSystemError).code === 'EntryNotFound'
         ) {
           throw new Error(`Directory not found at path: ${relativePath}`);
         }
@@ -332,12 +316,12 @@ export const deleteDirectoryToolDefinition = {
         useTrash: false,
       }); // Ensure recursive, consider useTrash preference
 
-      const successMsg = `Successfully deleted directory: ${relativePath}`;
-      logger.info(`[Tool] ${successMsg}`);
+      const successMessage = `Successfully deleted directory: ${relativePath}`;
+      logger.info(`[Tool] ${successMessage}`);
       const resultPayload: FilesystemResultPayload = {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
         isDirectory: true, // It *was* a directory
       };
@@ -345,7 +329,7 @@ export const deleteDirectoryToolDefinition = {
       const result: DirectoryActionResult = {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
       };
       return result;
@@ -354,12 +338,12 @@ export const deleteDirectoryToolDefinition = {
         error,
         toolName,
         currentPanel,
-        args,
+        arguments_,
       ) as unknown as DirectoryActionResult;
       return {
         toolName: toolName,
         success: false,
-        message: errorResult.message || "Failed to delete directory.",
+        message: errorResult.message || 'Failed to delete directory.',
         path: relativePath,
         error: errorResult.error,
       };

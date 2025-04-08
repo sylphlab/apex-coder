@@ -1,4 +1,4 @@
-import { vscode } from "../vscode.ts";
+import { vscode } from '../vscode.ts';
 
 /**
  * Interface for model information
@@ -44,40 +44,38 @@ export class ProviderService {
       // Set up a one-time message handler for the response
       const messageHandler = (event: MessageEvent) => {
         const message = event.data;
-        if (message.command === "providersResult") {
+        if (message.command === 'providersResult') {
           // Remove the event listener
-          window.removeEventListener("message", messageHandler);
+          window.removeEventListener('message', messageHandler);
 
           // Cache and return the providers
           this.providers = message.payload.providers || [];
           resolve(this.providers);
-        } else if (message.command === "error") {
+        } else if (message.command === 'error') {
           // Check if this error is related to our request
           const payload = message.payload || {};
-          const errorSource =
-            typeof payload === "object" ? payload.source : null;
-          const errorMessage =
-            typeof payload === "object" ? payload.message : payload;
+          const errorSource = typeof payload === 'object' ? payload.source : null;
+          const errorMessage = typeof payload === 'object' ? payload.message : payload;
 
-          if (errorSource === "getProviders") {
+          if (errorSource === 'getProviders') {
             // Remove the event listener
-            window.removeEventListener("message", messageHandler);
+            window.removeEventListener('message', messageHandler);
 
-            reject(new Error(errorMessage || "Failed to get providers"));
+            reject(new Error(errorMessage || 'Failed to get providers'));
           }
         }
       };
 
       // Add the event listener
-      window.addEventListener("message", messageHandler);
+      window.addEventListener('message', messageHandler);
 
       // Send the request to the extension
-      vscode.postMessage({ command: "getProviders" });
+      vscode.postMessage({ command: 'getProviders' });
 
       // Set a timeout to reject the promise if we don't get a response
       setTimeout(() => {
-        window.removeEventListener("message", messageHandler);
-        reject(new Error("Timeout waiting for providers"));
+        window.removeEventListener('message', messageHandler);
+        reject(new Error('Timeout waiting for providers'));
       }, 5000);
     });
   }
@@ -101,53 +99,41 @@ export class ProviderService {
       // Set up a one-time message handler for the response
       const messageHandler = (event: MessageEvent) => {
         const message = event.data;
-        if (
-          message.command === "modelsResult" &&
-          message.payload?.providerId === providerId
-        ) {
+        if (message.command === 'modelsResult' && message.payload?.providerId === providerId) {
           // Remove the event listener
-          window.removeEventListener("message", messageHandler);
+          window.removeEventListener('message', messageHandler);
 
           // Cache and return the models
           this.modelCache[providerId] = message.payload.models || [];
           resolve(this.modelCache[providerId]);
-        } else if (message.command === "error") {
+        } else if (message.command === 'error') {
           // Check if this error is related to our request
           const payload = message.payload || {};
-          const errorSource =
-            typeof payload === "object" ? payload.source : null;
-          const errorMessage =
-            typeof payload === "object" ? payload.message : payload;
+          const errorSource = typeof payload === 'object' ? payload.source : null;
+          const errorMessage = typeof payload === 'object' ? payload.message : payload;
 
-          if (errorSource === "getModelsForProvider") {
+          if (errorSource === 'getModelsForProvider') {
             // Remove the event listener
-            window.removeEventListener("message", messageHandler);
+            window.removeEventListener('message', messageHandler);
 
-            reject(
-              new Error(
-                errorMessage ||
-                  `Failed to get models for provider ${providerId}`,
-              ),
-            );
+            reject(new Error(errorMessage || `Failed to get models for provider ${providerId}`));
           }
         }
       };
 
       // Add the event listener
-      window.addEventListener("message", messageHandler);
+      window.addEventListener('message', messageHandler);
 
       // Send the request to the extension
       vscode.postMessage({
-        command: "getModelsForProvider",
+        command: 'getModelsForProvider',
         payload: { providerId },
       });
 
       // Set a timeout to reject the promise if we don't get a response
       setTimeout(() => {
-        window.removeEventListener("message", messageHandler);
-        reject(
-          new Error(`Timeout waiting for models for provider ${providerId}`),
-        );
+        window.removeEventListener('message', messageHandler);
+        reject(new Error(`Timeout waiting for models for provider ${providerId}`));
       }, 5000);
     });
   }

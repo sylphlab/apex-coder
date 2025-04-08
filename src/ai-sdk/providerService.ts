@@ -1,8 +1,8 @@
-import { logger } from "../utils/logger";
+import { logger } from '../utils/logger';
 import {
   getModelsForProvider as fetchModelsFromConfig,
   getSupportedProviders,
-} from "./configLoader";
+} from './configLoader';
 
 /**
  * Interface for model information
@@ -40,17 +40,15 @@ interface OllamaModel {
  * Formats file size in bytes to human-readable format.
  */
 function formatSize(bytes: number): string {
-  if (bytes < 0) return "0 B";
+  if (bytes < 0) return '0 B';
   if (bytes < 1024) return `${String(bytes)} B`; // Convert bytes to string
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const sizeIndex = Math.max(
     0,
     Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1),
   );
-  const formattedSize = parseFloat(
-    (bytes / Math.pow(k, sizeIndex)).toFixed(2),
-  );
+  const formattedSize = Number.parseFloat((bytes / Math.pow(k, sizeIndex)).toFixed(2));
   return `${formattedSize.toLocaleString()} ${sizes[sizeIndex]}`;
 }
 
@@ -59,9 +57,9 @@ function formatSize(bytes: number): string {
  * @param modelId The model ID
  */
 function formatModelName(modelId: string): string {
-  const cleanId = modelId.replace(/^models\//, "");
-  const spacedId = cleanId.replace(/[-_]/g, " ");
-  return spacedId.replace(/\b\w/g, (c) => c.toUpperCase());
+  const cleanId = modelId.replace(/^models\//, '');
+  const spacedId = cleanId.replaceAll(/[-_]/g, ' ');
+  return spacedId.replaceAll(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**
@@ -69,22 +67,22 @@ function formatModelName(modelId: string): string {
  */
 function getProviderDisplayName(providerId: string): string {
   const displayNames: Record<string, string> = {
-    googleai: "Google AI (Gemini)",
-    openai: "OpenAI (GPT)",
-    anthropic: "Anthropic (Claude)",
-    ollama: "Ollama (Local)",
-    deepseek: "DeepSeek",
-    vertexai: "Google Vertex AI",
-    cohere: "Cohere",
-    mistral: "Mistral AI",
-    perplexity: "Perplexity AI",
-    replicate: "Replicate",
-    aws: "AWS Bedrock",
-    bedrock: "AWS Bedrock",
-    azure: "Azure OpenAI",
-    groq: "Groq",
-    chromeai: "Chrome AI",
-    openrouter: "OpenRouter",
+    googleai: 'Google AI (Gemini)',
+    openai: 'OpenAI (GPT)',
+    anthropic: 'Anthropic (Claude)',
+    ollama: 'Ollama (Local)',
+    deepseek: 'DeepSeek',
+    vertexai: 'Google Vertex AI',
+    cohere: 'Cohere',
+    mistral: 'Mistral AI',
+    perplexity: 'Perplexity AI',
+    replicate: 'Replicate',
+    aws: 'AWS Bedrock',
+    bedrock: 'AWS Bedrock',
+    azure: 'Azure OpenAI',
+    groq: 'Groq',
+    chromeai: 'Chrome AI',
+    openrouter: 'OpenRouter',
   };
   return displayNames[providerId] || providerId;
 }
@@ -93,7 +91,7 @@ function getProviderDisplayName(providerId: string): string {
  * Check if a provider allows custom model IDs
  */
 function allowsCustomModel(providerId: string): boolean {
-  return ["ollama", "replicate"].includes(providerId.toLowerCase());
+  return ['ollama', 'replicate'].includes(providerId.toLowerCase());
 }
 
 /**
@@ -102,15 +100,17 @@ function allowsCustomModel(providerId: string): boolean {
  */
 function getDefaultModels(providerId: string): ModelInfo[] {
   switch (providerId) {
-    case "ollama":
+    case 'ollama': {
       return [
-        { id: "llama3", name: "Llama 3" },
-        { id: "mistral", name: "Mistral" },
-        { id: "codellama", name: "Code Llama" },
-        { id: "phi3", name: "Phi-3" },
+        { id: 'llama3', name: 'Llama 3' },
+        { id: 'mistral', name: 'Mistral' },
+        { id: 'codellama', name: 'Code Llama' },
+        { id: 'phi3', name: 'Phi-3' },
       ];
-    default:
+    }
+    default: {
       return [];
+    }
   }
 }
 
@@ -120,9 +120,7 @@ function getDefaultModels(providerId: string): ModelInfo[] {
  */
 async function fetchOllamaModels(baseUrl: string): Promise<ModelInfo[]> {
   try {
-    const normalizedBaseUrl = baseUrl.endsWith("/")
-      ? baseUrl.slice(0, -1)
-      : baseUrl;
+    const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     const response = await fetch(`${normalizedBaseUrl}/api/tags`);
 
     if (response.ok) {
@@ -134,18 +132,14 @@ async function fetchOllamaModels(baseUrl: string): Promise<ModelInfo[]> {
           description: `Size: ${formatSize(model.size)}`,
         }));
       }
-      logger.warn(
-        "Ollama API response missing or malformed models array, using defaults",
-      );
+      logger.warn('Ollama API response missing or malformed models array, using defaults');
     } else {
-      logger.warn(
-        `Ollama API request failed with status ${response.status}, using defaults`,
-      );
+      logger.warn(`Ollama API request failed with status ${response.status}, using defaults`);
     }
-    return getDefaultModels("ollama"); // Fallback
+    return getDefaultModels('ollama'); // Fallback
   } catch (error: unknown) {
-    logger.error("Error fetching Ollama models:", error);
-    return getDefaultModels("ollama"); // Fallback on fetch error
+    logger.error('Error fetching Ollama models:', error);
+    return getDefaultModels('ollama'); // Fallback on fetch error
   }
 }
 
@@ -158,13 +152,13 @@ export function getAllProviders(): ProviderDetails[] {
     return providers.map((provider) => ({
       id: provider.id,
       name: getProviderDisplayName(provider.id),
-      requiresApiKey: provider.requiredCredentials.includes("apiKey"),
-      requiresBaseUrl: provider.requiredCredentials.includes("baseUrl"),
+      requiresApiKey: provider.requiredCredentials.includes('apiKey'),
+      requiresBaseUrl: provider.requiredCredentials.includes('baseUrl'),
       allowCustomModel: allowsCustomModel(provider.id),
       models: [], // Models fetched on demand
     }));
   } catch (error: unknown) {
-    logger.error("Error getting providers:", error);
+    logger.error('Error getting providers:', error);
     throw new Error(
       `Failed to get providers: ${error instanceof Error ? error.message : String(error)}`,
     );
@@ -184,7 +178,7 @@ export async function getModelsForProviderDetails(
     const providerLower = providerId.toLowerCase();
     const baseUrl = credentials?.baseUrl as string | undefined;
 
-    if (providerLower === "ollama" && baseUrl) {
+    if (providerLower === 'ollama' && baseUrl) {
       return await fetchOllamaModels(baseUrl);
     }
 

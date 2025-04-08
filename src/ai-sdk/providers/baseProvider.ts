@@ -1,4 +1,4 @@
-import type { LanguageModel } from "ai";
+import type { LanguageModel } from 'ai';
 
 /**
  * Base interface for all AI providers
@@ -14,10 +14,7 @@ export interface AIProvider {
    * @param modelId The model ID to use
    * @param credentials Provider-specific credentials
    */
-  createModel(
-    modelId: string,
-    credentials: Record<string, unknown>,
-  ): Promise<LanguageModel>;
+  createModel(modelId: string, credentials: Record<string, unknown>): Promise<LanguageModel>;
 
   /**
    * Get available models for this provider
@@ -56,13 +53,9 @@ export abstract class BaseAIProvider implements AIProvider {
     credentials: Record<string, unknown>,
   ): Promise<LanguageModel>;
 
-  abstract getAvailableModels(
-    credentials?: Record<string, unknown>,
-  ): Promise<string[]>;
+  abstract getAvailableModels(credentials?: Record<string, unknown>): Promise<string[]>;
 
-  abstract validateCredentials(
-    credentials: Record<string, unknown>,
-  ): Promise<boolean>;
+  abstract validateCredentials(credentials: Record<string, unknown>): Promise<boolean>;
 
   abstract getRequiredCredentialFields(): string[];
 }

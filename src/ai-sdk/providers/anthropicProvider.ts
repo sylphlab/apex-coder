@@ -1,28 +1,25 @@
-import type { LanguageModel } from "ai";
-import { BaseAIProvider } from "./baseProvider";
-import { logger } from "../../utils/logger";
+import type { LanguageModel } from 'ai';
+import { BaseAIProvider } from './baseProvider.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Anthropic (Claude) provider implementation
  */
 export class AnthropicProvider extends BaseAIProvider {
   constructor() {
-    super("anthropic");
+    super('anthropic');
   }
 
-  async createModel(
-    modelId: string,
-    credentials: Record<string, unknown>,
-  ): Promise<LanguageModel> {
+  async createModel(modelId: string, credentials: Record<string, unknown>): Promise<LanguageModel> {
     try {
       // Explicitly type apiKey
       const apiKey = credentials.apiKey as string | undefined;
       if (!apiKey) {
-        throw new Error("API key is required for Anthropic");
+        throw new Error('API key is required for Anthropic');
       }
 
       // Import the Anthropic SDK
-      const { createAnthropic } = await import("@ai-sdk/anthropic");
+      const { createAnthropic } = await import('@ai-sdk/anthropic');
 
       // Create the provider instance
       const provider = createAnthropic({
@@ -32,30 +29,28 @@ export class AnthropicProvider extends BaseAIProvider {
       // Return the model instance
       return provider(modelId);
     } catch (error: unknown) {
-      logger.error("Failed to create Anthropic model:", error);
+      logger.error('Failed to create Anthropic model:', error);
       throw new Error(
         `Failed to create Anthropic model: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
-  // Keeping async to match BaseAIProvider interface, even if currently static
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async getAvailableModels(
-    _credentials?: Record<string, unknown>,
-  ): Promise<string[]> {
-    logger.info("Returning static list of Anthropic models.");
+  async getAvailableModels(credentials?: Record<string, unknown>): Promise<string[]> {
+    if (credentials) {
+      // Validate credentials even though we don't use them for the static list
+      await this.validateCredentials(credentials);
+    }
+    logger.info('Returning static list of Anthropic models.');
     return [
-      "claude-3-5-sonnet-20240620",
-      "claude-3-opus-20240229",
-      "claude-3-sonnet-20240229",
-      "claude-3-haiku-20240307",
+      'claude-3-5-sonnet-20240620',
+      'claude-3-opus-20240229',
+      'claude-3-sonnet-20240229',
+      'claude-3-haiku-20240307',
     ];
   }
 
-  async validateCredentials(
-    credentials: Record<string, unknown>,
-  ): Promise<boolean> {
+  async validateCredentials(credentials: Record<string, unknown>): Promise<boolean> {
     try {
       // Explicitly type apiKey
       const apiKey = credentials.apiKey as string | undefined;
@@ -64,20 +59,20 @@ export class AnthropicProvider extends BaseAIProvider {
       }
 
       // Try to create a provider instance with the credentials
-      const { createAnthropic } = await import("@ai-sdk/anthropic");
+      const { createAnthropic } = await import('@ai-sdk/anthropic');
 
       // Use the imported creator function directly
       createAnthropic({ apiKey: apiKey });
       logger.info(`Anthropic provider initialized successfully (simulated).`);
       return true;
     } catch (error: unknown) {
-      logger.error("Failed to validate Anthropic credentials:", error);
+      logger.error('Failed to validate Anthropic credentials:', error);
       return false;
     }
   }
 
   getRequiredCredentialFields(): string[] {
-    return ["apiKey"];
+    return ['apiKey'];
   }
 }
 

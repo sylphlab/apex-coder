@@ -1,12 +1,12 @@
-import type { AIProvider } from "./baseProvider";
-import { googleAIProvider } from "./googleProvider";
-import { openAIProvider } from "./openaiProvider";
-import { anthropicProvider } from "./anthropicProvider";
-import { ollamaProvider } from "./ollamaProvider";
-import { mistralProvider } from "./mistralProvider";
-import { azureProvider } from "./azureProvider";
-import { cohereProvider } from "./cohereProvider";
-import { deepseekProvider } from "./deepseekProvider";
+import type { AIProvider } from './baseProvider';
+import { googleAIProvider } from './googleProvider';
+import { openAIProvider } from './openaiProvider';
+import { anthropicProvider } from './anthropicProvider';
+import { ollamaProvider } from './ollamaProvider';
+import { mistralProvider } from './mistralProvider';
+import { azureProvider } from './azureProvider';
+import { cohereProvider } from './cohereProvider';
+import { deepseekProvider } from './deepseekProvider';
 
 // Map of provider ID to provider instance
 const providers: Record<string, AIProvider> = {
@@ -42,24 +42,21 @@ export function getAllProviders(): AIProvider[] {
  * @param providerId The provider ID
  * @param provider The provider instance
  */
-export function registerProvider(
-  providerId: string,
-  provider: AIProvider,
-): void {
+export function registerProvider(providerId: string, provider: AIProvider): void {
   providers[providerId.toLowerCase()] = provider;
 }
 
 // Export all providers
-export {
-  googleAIProvider,
-  openAIProvider,
-  anthropicProvider,
-  ollamaProvider,
-  mistralProvider,
-  azureProvider,
-  cohereProvider,
-  deepseekProvider,
-};
 
 // Export provider interfaces
-export * from "./baseProvider";
+export * from './baseProvider';
+
+export { googleAIProvider } from './googleProvider';
+export { anthropicProvider } from './anthropicProvider';
+export { openAIProvider } from './openaiProvider';
+
+export { ollamaProvider } from './ollamaProvider';
+export { azureProvider } from './azureProvider';
+export { mistralProvider } from './mistralProvider';
+export { deepseekProvider } from './deepseekProvider';
+export { cohereProvider } from './cohereProvider';

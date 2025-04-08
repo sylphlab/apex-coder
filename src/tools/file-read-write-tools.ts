@@ -1,41 +1,27 @@
-import { z } from "zod";
-import * as vscode from "vscode";
-import { logger } from "../utils/logger";
-import type {
-  FilesystemResultPayload,
-  ReadFileResult,
-  WriteFileResult,
-} from "./coreTools";
-import {
-  postToolResult,
-  handleToolError,
-} from "./coreTools";
+import { z } from 'zod';
+import * as vscode from 'vscode';
+import { logger } from '../utils/logger.js';
+import type { FilesystemResultPayload, ReadFileResult, WriteFileResult } from './coreTools';
+import { postToolResult, handleToolError } from './coreTools';
 // import * as pathUtils from "path"; // Remove unused import for now
-import { acquireLock } from "../utils/fileLockManager";
-import type { ToolContext } from "../types/toolContext";
+import { acquireLock } from '../utils/fileLockManager';
+import type { ToolContext } from '../types/tool-context.js';
 
 /**
  * Reads file content with optional line range support.
  */
 export const readFileToolDefinition = {
   description:
-    "Reads file content with optional line range support. Returns truncated content for AI context.",
+    'Reads file content with optional line range support. Returns truncated content for AI context.',
   parameters: z.object({
-    path: z
-      .string()
-      .describe('File path relative to workspace root (e.g., "src/main.ts")'),
-    startLine: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe("Starting line number (1-based)"),
+    path: z.string().describe('File path relative to workspace root (e.g., "src/main.ts")'),
+    startLine: z.number().int().positive().optional().describe('Starting line number (1-based)'),
     endLine: z
       .number()
       .int()
       .positive()
       .optional()
-      .describe("Ending line number (1-based, inclusive)"),
+      .describe('Ending line number (1-based, inclusive)'),
   }),
   /**
    * Executes the read file tool.
@@ -44,21 +30,21 @@ export const readFileToolDefinition = {
    * @returns An object indicating success or failure, including truncated content for the AI model.
    */
   async execute(
-    args: { path: string; startLine?: number; endLine?: number },
+    arguments_: { path: string; startLine?: number; endLine?: number },
     currentPanel?: vscode.WebviewPanel,
   ): Promise<ReadFileResult> {
-    const toolName = "readFile";
-    const { path: relativePath, startLine, endLine } = args;
+    const toolName = 'readFile';
+    const { path: relativePath, startLine, endLine } = arguments_;
     const lineInfo =
       startLine !== undefined || endLine !== undefined
-        ? ` [Lines ${startLine ?? "start"}-${endLine ?? "end"}]`
-        : "";
+        ? ` [Lines ${startLine ?? 'start'}-${endLine ?? 'end'}]`
+        : '';
     logger.info(`[Tool] Executing readFile: ${relativePath}${lineInfo}`);
 
     try {
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders?.length) {
-        throw new Error("No workspace folder open");
+        throw new Error('No workspace folder open');
       }
       const rootUri = workspaceFolders[0].uri;
       const absolutePath = vscode.Uri.joinPath(rootUri, relativePath);
@@ -67,13 +53,13 @@ export const readFileToolDefinition = {
       try {
         const stat = await vscode.workspace.fs.stat(absolutePath);
         if (stat.type !== vscode.FileType.File) {
-          throw new Error("Path is not a file.");
+          throw new Error('Path is not a file.');
         }
       } catch (statError: unknown) {
         if (
           statError instanceof Error &&
-          ((statError as vscode.FileSystemError).code === "FileNotFound" ||
-            (statError as vscode.FileSystemError).code === "EntryNotFound")
+          ((statError as vscode.FileSystemError).code === 'FileNotFound' ||
+            (statError as vscode.FileSystemError).code === 'EntryNotFound')
         ) {
           throw new Error(`File not found at path: ${relativePath}`);
         }
@@ -86,37 +72,37 @@ export const readFileToolDefinition = {
       // Handle line range
       let isRangeApplied = false;
       if (startLine !== undefined || endLine !== undefined) {
-        const lines = fileContent.split("\n");
+        const lines = fileContent.split('\n');
         const start = startLine ? Math.max(0, startLine - 1) : 0;
         const end = endLine ? Math.min(lines.length, endLine) : lines.length;
         if (start < end) {
-          fileContent = lines.slice(start, end).join("\n");
+          fileContent = lines.slice(start, end).join('\n');
           isRangeApplied = true;
         } else {
           logger.warn(
-            `[Tool] Invalid line range for readFile ${relativePath}: start ${startLine ?? "undefined"}, end ${endLine ?? "undefined"}. Reading full file.`,
+            `[Tool] Invalid line range for readFile ${relativePath}: start ${startLine ?? 'undefined'}, end ${endLine ?? 'undefined'}. Reading full file.`,
           );
         }
       }
 
-      const successMsgBase = `Successfully read file: ${relativePath}`;
-      const successMsg = isRangeApplied
-        ? `${successMsgBase} (lines ${startLine ?? 'start'}-${endLine ?? 'end'})`
-        : successMsgBase;
-      logger.info(`[Tool] ${successMsg}`);
+      const successMessageBase = `Successfully read file: ${relativePath}`;
+      const successMessage = isRangeApplied
+        ? `${successMessageBase} (lines ${startLine ?? 'start'}-${endLine ?? 'end'})`
+        : successMessageBase;
+      logger.info(`[Tool] ${successMessage}`);
 
       // Truncate for AI
       const maxChars = 8000;
       const isTruncated = fileContent.length > maxChars;
       const truncatedContent = isTruncated
-        ? fileContent.substring(0, maxChars) + "\n... [truncated]"
+        ? fileContent.slice(0, Math.max(0, maxChars)) + '\n... [truncated]'
         : fileContent;
 
       // Post full result (without truncated content) to webview
       const postPayload: FilesystemResultPayload = {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
         // Potentially add full content here if needed by webview?
         // content: fileContent, // Or maybe not?
@@ -127,7 +113,7 @@ export const readFileToolDefinition = {
       const result: ReadFileResult = {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
         content: truncatedContent, // Return truncated content for AI
         // Add originalLineCount, isTruncated, isRangeApplied if needed
@@ -139,7 +125,7 @@ export const readFileToolDefinition = {
         error,
         toolName,
         currentPanel,
-        args,
+        arguments_,
       ) as unknown as ReadFileResult; // Need cast due to handleToolError's return type
     }
   },
@@ -150,11 +136,14 @@ export const readFileToolDefinition = {
  */
 export const writeFileToolDefinition = {
   description:
-    "Writes the given content to a specified file. Optionally overwrites existing files.",
+    'Writes the given content to a specified file. Optionally overwrites existing files.',
   parameters: z.object({
     path: z.string().describe('File path relative to workspace root (e.g., "src/newFile.ts").'),
-    content: z.string().describe("The content to write to the file."),
-    overwrite: z.boolean().default(false).describe("Whether to overwrite the file if it already exists."),
+    content: z.string().describe('The content to write to the file.'),
+    overwrite: z
+      .boolean()
+      .default(false)
+      .describe('Whether to overwrite the file if it already exists.'),
   }),
   /**
    * Executes the write file tool.
@@ -163,12 +152,12 @@ export const writeFileToolDefinition = {
    * @returns An object indicating success or failure for the AI model.
    */
   async execute(
-    args: { path: string; content: string; overwrite: boolean },
+    arguments_: { path: string; content: string; overwrite: boolean },
     currentPanel?: vscode.WebviewPanel,
-    context?: ToolContext
+    context?: ToolContext,
   ): Promise<WriteFileResult> {
-    const toolName = "writeFile";
-    const { path: relativePath, content, overwrite } = args;
+    const toolName = 'writeFile';
+    const { path: relativePath, content, overwrite } = arguments_;
     const sessionId = context?.sessionId || 'unknown_session';
     logger.info(`[Tool][${sessionId}] Executing ${toolName}: ${relativePath}`);
 
@@ -177,7 +166,7 @@ export const writeFileToolDefinition = {
     try {
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders?.length) {
-        throw new Error("No workspace folder open");
+        throw new Error('No workspace folder open');
       }
       const rootUri = workspaceFolders[0].uri;
       const fileUri = vscode.Uri.joinPath(rootUri, relativePath);
@@ -193,8 +182,9 @@ export const writeFileToolDefinition = {
       try {
         await vscode.workspace.fs.stat(fileUri);
         fileExists = true;
-      } catch (statError: any) {
-        if (statError?.code !== 'FileNotFound' && statError?.code !== 'EntryNotFound') {
+      } catch (statError: unknown) {
+        if (statError instanceof Error && 'code' in statError &&
+            statError.code !== 'FileNotFound' && statError.code !== 'EntryNotFound') {
           throw statError; // Re-throw unexpected stat errors
         }
         // File does not exist, which is fine
@@ -209,21 +199,26 @@ export const writeFileToolDefinition = {
       // 3. Write the file
       await vscode.workspace.fs.writeFile(fileUri, Buffer.from(content, 'utf-8'));
 
-      const successMsg = `Successfully wrote content to ${relativePath}.`;
-      logger.info(`[Tool][${sessionId}] ${successMsg}`);
-      postToolResult(currentPanel, { toolName, success: true, message: successMsg, path: relativePath });
-      
+      const successMessage = `Successfully wrote content to ${relativePath}.`;
+      logger.info(`[Tool][${sessionId}] ${successMessage}`);
+      postToolResult(currentPanel, {
+        toolName,
+        success: true,
+        message: successMessage,
+        path: relativePath,
+      });
+
       // 4. Release lock (early release on success)
       if (releaseLock) {
-          logger.info(`[Tool][${sessionId}] Releasing lock for ${relativePath} after write.`);
-          releaseLock();
-          releaseLock = null; // Prevent release in finally block
+        logger.info(`[Tool][${sessionId}] Releasing lock for ${relativePath} after write.`);
+        releaseLock();
+        releaseLock = null; // Prevent release in finally block
       }
 
       return {
         toolName: toolName,
         success: true,
-        message: successMsg,
+        message: successMessage,
         path: relativePath,
       };
     } catch (error) {
@@ -231,7 +226,7 @@ export const writeFileToolDefinition = {
         error,
         toolName,
         currentPanel,
-        args,
+        arguments_,
       ) as unknown as WriteFileResult;
       return {
         toolName: toolName,
@@ -241,11 +236,11 @@ export const writeFileToolDefinition = {
         error: errorResult.error,
       };
     } finally {
-        // Ensure lock is always released, even if write succeeded but something else failed
-        if (releaseLock) {
-            logger.info(`[Tool][${sessionId}] Releasing lock for ${relativePath} in finally block.`);
-            releaseLock();
-        }
+      // Ensure lock is always released, even if write succeeded but something else failed
+      if (releaseLock) {
+        logger.info(`[Tool][${sessionId}] Releasing lock for ${relativePath} in finally block.`);
+        releaseLock();
+      }
     }
   },
 };

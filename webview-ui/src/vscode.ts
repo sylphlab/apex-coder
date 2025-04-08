@@ -1,4 +1,4 @@
-import type { WebviewApi } from "vscode-webview";
+import type { WebviewApi } from 'vscode-webview';
 
 /**
  * A utility wrapper around the acquireVsCodeApi() function, which enables
@@ -10,15 +10,15 @@ class VsCodeApiWrapper {
   private readonly vscodeApi: WebviewApi<unknown> | undefined;
 
   constructor() {
-    // Check if the acquireVsCodeApi function exists in the current context.
-    // Cast window to any to access potentially injected functions like acquireVsCodeApi
-    const global = window as any;
-    if (typeof global.acquireVsCodeApi === "function") {
+    // Check if the acquireVsCodeApi function exists in the current context
+    interface VSCodeGlobal {
+      acquireVsCodeApi?: () => WebviewApi<unknown>;
+    }
+    const global = globalThis as VSCodeGlobal;
+    if (typeof global.acquireVsCodeApi === 'function') {
       this.vscodeApi = global.acquireVsCodeApi();
     } else {
-      console.warn(
-        "acquireVsCodeApi function not found. Running outside VS Code webview?",
-      );
+      // acquireVsCodeApi function not found - running outside VS Code webview
       // Provide a mock API for development outside VS Code if needed
       // this.vscodeApi = { postMessage: (message) => console.log('Mock postMessage:', message), getState: () => undefined, setState: () => {} };
     }
@@ -32,7 +32,7 @@ class VsCodeApiWrapper {
     if (this.vscodeApi) {
       this.vscodeApi.postMessage(message);
     } else {
-      console.warn("VS Code API not available. Message not sent:", message);
+      // VS Code API not available - message not sent
     }
   }
 
@@ -41,11 +41,9 @@ class VsCodeApiWrapper {
    * @param callback The callback function to handle received messages.
    * @returns A function to remove the listener.
    */
-  public onMessage(
-    callback: (message: MessageEvent<unknown>) => void,
-  ): () => void {
-    window.addEventListener("message", callback);
-    return () => window.removeEventListener("message", callback);
+  public onMessage(callback: (message: MessageEvent<unknown>) => void): () => void {
+    window.addEventListener('message', callback);
+    return () => window.removeEventListener('message', callback);
   }
 
   /**
@@ -76,7 +74,7 @@ export interface VsCodeMessage {
 }
 
 export interface VsCodeResponse {
-  command: "response";
+  command: 'response';
   requestId: string;
   payload?: unknown;
   error?: string;

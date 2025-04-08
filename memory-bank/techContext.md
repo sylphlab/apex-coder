@@ -46,3 +46,6 @@
 - Extensibility: Design config loader for easily adding new Vercel AI SDK providers.
 - User Configuration: Allow users to easily configure AI providers, models, and API keys.
 - Development Mode: Use production mode for WebView UI to avoid black screen issues.
+
+## Guideline Checksums
+- guidelines/typescript/style_quality.md: 7052c488c1b4078091d7048694ebf9e3b045473e

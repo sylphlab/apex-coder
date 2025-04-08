@@ -1,6 +1,6 @@
-import type { LanguageModel } from "ai";
-import { logger } from "../utils/logger";
-import { getProvider, getAllProviders } from "./providers";
+import type { LanguageModel } from 'ai';
+import { logger } from '../utils/logger.js';
+import { getProvider, getAllProviders } from './providers/index.js';
 
 // Define the expected configuration structure
 export interface AiConfig {
@@ -10,8 +10,8 @@ export interface AiConfig {
 }
 
 // Store the initialized model instance and config
-let languageModelInstance: LanguageModel | null = null;
-let currentConfig: AiConfig | null = null;
+let languageModelInstance: LanguageModel | undefined = undefined;
+let currentConfig: AiConfig | undefined = undefined;
 
 // Cache for available models by provider
 const modelCache: Record<string, string[]> = {};
@@ -22,21 +22,20 @@ const modelCache: Record<string, string[]> = {};
  */
 export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
   const providerLower = config.provider.toLowerCase();
-  const modelId = config.modelId ?? "";
+  const modelId = config.modelId ?? '';
 
-  logger.info(
-    `Initializing AI SDK for provider: ${providerLower} with model: ${modelId}`,
-  );
+  logger.info(`Initializing AI SDK for provider: ${providerLower} with model: ${modelId}`);
 
-  // Reset current state
-  languageModelInstance = null;
-  currentConfig = config;
+  // Reset model instance and config
+  languageModelInstance = undefined;
+  currentConfig = undefined;
 
   // Check if model ID is provided
   if (!modelId) {
     logger.warn(
       `No model ID specified for provider: ${providerLower}. User will need to select a model.`,
     );
+    currentConfig = config; // Save config even without modelId
     return;
   }
 
@@ -47,15 +46,13 @@ export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
       throw new Error(`Unsupported AI provider: ${providerLower}`);
     }
 
-    // Create the model
-    languageModelInstance = await provider.createModel(
-      modelId,
-      config.credentials,
-    );
+    // Set config only after provider validation
+    currentConfig = config;
 
-    logger.info(
-      `AI SDK Model initialized successfully: ${providerLower}/${modelId}`,
-    );
+    // Create the model
+    languageModelInstance = await provider.createModel(modelId, config.credentials);
+
+    logger.info(`AI SDK Model initialized successfully: ${providerLower}/${modelId}`);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(
@@ -63,11 +60,9 @@ export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
       errorMessage,
       error,
     );
-    languageModelInstance = null;
+    languageModelInstance = undefined;
     // Re-throw a more specific error or the original one
-    throw new Error(
-      `AI SDK Model initialization failed for ${providerLower}: ${errorMessage}`,
-    );
+    throw new Error(`AI SDK Model initialization failed for ${providerLower}: ${errorMessage}`);
   }
 }
 
@@ -78,9 +73,7 @@ export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
  */
 export function getLanguageModel(): LanguageModel {
   if (!languageModelInstance) {
-    throw new Error(
-      "AI SDK Model has not been initialized. Call initializeAiSdkModel first.",
-    );
+    throw new Error('AI SDK Model has not been initialized. Call initializeAiSdkModel first.');
   }
   return languageModelInstance;
 }
@@ -89,7 +82,7 @@ export function getLanguageModel(): LanguageModel {
  * Get the current AI configuration
  * @returns The current AI configuration or null if not initialized
  */
-export function getCurrentAiConfig(): AiConfig | null {
+export function getCurrentAiConfig(): AiConfig | undefined {
   return currentConfig;
 }
 
@@ -97,9 +90,9 @@ export function getCurrentAiConfig(): AiConfig | null {
  * Reset the AI SDK model and configuration
  */
 export function resetAiSdkModel(): void {
-  logger.info("Resetting AI SDK Model and configuration.");
-  languageModelInstance = null;
-  currentConfig = null;
+  logger.info('Resetting AI SDK Model and configuration.');
+  languageModelInstance = undefined;
+  currentConfig = undefined;
 }
 
 /**
@@ -117,7 +110,7 @@ export async function getModelsForProvider(
   const providerLower = providerId.toLowerCase();
 
   // Return cached models if available and not forcing refresh
-  if (!forceRefresh && modelCache[providerLower]) {
+  if (!forceRefresh && providerLower in modelCache) {
     return modelCache[providerLower];
   }
 
@@ -175,10 +168,7 @@ export async function validateProviderCredentials(
 
     return await provider.validateCredentials(credentials);
   } catch (error: unknown) {
-    logger.error(
-      `Failed to validate credentials for provider ${providerId}:`,
-      error,
-    );
+    logger.error(`Failed to validate credentials for provider ${providerId}:`, error);
     return false;
   }
 }

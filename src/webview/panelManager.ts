@@ -1,21 +1,14 @@
-import * as vscode from "vscode";
-import { getWebviewContent } from "./contentProvider";
-import { logger } from "../utils/logger";
-import type { AiConfig } from "../ai-sdk/configLoader";
-import {
-  getLanguageModel,
-  initializeAiSdkModel,
-  resetAiSdkModel,
-} from "../ai-sdk/configLoader";
-import {
-  getAllProviders,
-  getModelsForProviderDetails,
-} from "../ai-sdk/providerService";
-import type { Tool } from "ai";
-import { streamText, StreamTextResult as AISdkStreamTextResult } from "ai";
+import * as vscode from 'vscode';
+import { getWebviewContent } from './contentProvider';
+import { logger } from '../utils/logger';
+import type { AiConfig } from '../ai-sdk/configLoader';
+import { getLanguageModel, initializeAiSdkModel, resetAiSdkModel } from '../ai-sdk/configLoader';
+import { getAllProviders, getModelsForProviderDetails } from '../ai-sdk/providerService';
+import type { Tool, StreamTextResult as AISdkStreamTextResult } from 'ai';
+import { streamText } from 'ai';
 // Import Message type from Vercel AI SDK
-import type { Message } from "ai";
-import { createAllTools } from "../tools/coreTools";
+import type { Message } from 'ai';
+import { createAllTools } from '../tools/coreTools';
 // Assuming assistantManager is correctly structured for import
 import {
   getAssistantProfiles,
@@ -23,9 +16,9 @@ import {
   addAssistantProfile,
   updateAssistantProfile,
   getAssistantProfileById,
-} from "../assistantManager";
+} from '../assistantManager';
 // Import the type definition
-import type { AssistantProfile } from "../types/assistantProfile";
+import type { AssistantProfile } from '../types/assistantProfile';
 // Corrected single import for constants
 import {
   CONFIG_NAMESPACE,
@@ -35,10 +28,10 @@ import {
   PANEL_ID,
   PANEL_TITLE,
   SECRET_API_KEY_PREFIX,
-} from "../utils/constants";
+} from '../utils/constants';
 // Import SessionManager and SessionState
-import type { SessionManager } from "../core/sessionManager";
-import type { SessionState, ScheduledAction } from "../types/sessionState";
+import type { SessionManager } from '../core/sessionManager';
+import type { SessionState, ScheduledAction } from '../types/sessionState';
 // Import uuid
 import { v4 as uuidv4 } from 'uuid';
 
@@ -88,10 +81,7 @@ export class PanelManager {
   private currentAssistants: string[] = []; // Now managed by session state
   private currentSessionId: string | null = null; // Track current active session
   private readonly sessionManager: SessionManager; // Add session manager instance
-  private readonly messageHandlers: Record<
-    string,
-    (payload: unknown) => Promise<void> | void
-  >;
+  private readonly messageHandlers: Record<string, (payload: unknown) => Promise<void> | void>;
 
   constructor(
     context: vscode.ExtensionContext,
@@ -105,7 +95,7 @@ export class PanelManager {
     this.workspaceRootPath = workspaceRootPath;
     this.sessionManager = sessionManager; // Store instance
     logger.info(
-      `PanelManager initialized with workspaceRootPath: ${this.workspaceRootPath ?? "undefined"}`,
+      `PanelManager initialized with workspaceRootPath: ${this.workspaceRootPath ?? 'undefined'}`,
     );
     // Initialize message handlers here
     this.messageHandlers = {
@@ -113,21 +103,22 @@ export class PanelManager {
         this.handleAlert(payload);
       },
       getConfigStatus: () => this.sendConfigStatus(),
-      saveConfiguration: (payload) =>
-        this.handleSaveConfiguration(payload as SaveConfigPayload),
-      sendMessage: (payload) =>
-        this.handleSendMessage(payload as SendMessagePayload),
+      saveConfiguration: (payload) => this.handleSaveConfiguration(payload as SaveConfigPayload),
+      sendMessage: (payload) => this.handleSendMessage(payload as SendMessagePayload),
       getProviders: () => this.handleGetProviders(),
-      getModelsForProvider: (payload) =>
-        this.handleGetModelsForProvider(payload),
+      getModelsForProvider: (payload) => this.handleGetModelsForProvider(payload),
       getAssistantProfiles: () => this.handleGetAssistantProfiles(),
-      deleteAssistantProfile: (payload) =>
-        this.handleDeleteAssistantProfile(payload),
-      addAssistantProfile: (payload) =>
-        this.handleAddAssistantProfile(payload),
-      updateAssistantProfile: (payload) =>
-        this.handleUpdateAssistantProfile(payload),
-      getAvailableTools: () => this.handleGetAvailableTools(),
+      deleteAssistantProfile: (payload) => this.handleDeleteAssistantProfile(payload),
+      addAssistantProfile: (payload) => this.handleAddAssistantProfile(payload),
+      updateAssistantProfile: (payload) => this.handleUpdateAssistantProfile(payload),
+      getAvailableTools: () => {
+        this.handleGetAvailableTools();
+      },
+      // Session Management Handlers
+      createNewSession: () => this.handleCreateNewSession(),
+      getSessionList: () => this.handleGetSessionList(),
+      switchToSession: (payload) => this.handleSwitchToSession(payload),
+      deleteSession: (payload) => this.handleDeleteSession(payload),
     };
   }
 
@@ -135,13 +126,14 @@ export class PanelManager {
    * Creates or reveals the webview panel.
    * Needs to handle loading the state for a specific session.
    */
-  public async showPanel(sessionId?: string): Promise<void> { // Allow specifying session ID
+  public async showPanel(sessionId?: string): Promise<void> {
+    // Allow specifying session ID
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
 
     if (PanelManager.currentPanel) {
-      logger.info("Revealing existing panel.");
+      logger.info('Revealing existing panel.');
       PanelManager.currentPanel.reveal(column);
       // Resend config status when revealing existing panel
       await this.sendConfigStatus();
@@ -159,7 +151,7 @@ export class PanelManager {
         retainContextWhenHidden: true, // Keep state when panel is hidden
       },
     );
-    logger.info("Created new panel.");
+    logger.info('Created new panel.');
 
     PanelManager.currentPanel.webview.html = getWebviewContent(
       PanelManager.currentPanel.webview,
@@ -167,7 +159,7 @@ export class PanelManager {
       this.extensionMode,
       this.workspaceRootPath,
     );
-    logger.info("Set panel HTML content.");
+    logger.info('Set panel HTML content.');
 
     // Set up message listener using the handler map
     PanelManager.currentPanel.webview.onDidReceiveMessage(
@@ -177,19 +169,14 @@ export class PanelManager {
           try {
             await handler(message.payload);
           } catch (error) {
-            logger.error(
-              `Error handling webview command '${message.command}':`,
-              error,
-            );
+            logger.error(`Error handling webview command '${message.command}':`, error);
             this.postErrorToWebview(
               `Internal error handling command: ${message.command}`,
               message.command,
             );
           }
         } else {
-          logger.warn(
-            `Received unknown command from webview: ${message.command}`,
-          );
+          logger.warn(`Received unknown command from webview: ${message.command}`);
         }
       },
       undefined,
@@ -207,41 +194,44 @@ export class PanelManager {
 
     // Create a new session if no ID is provided or found?
     if (!sessionId) {
-        const newSession = this.sessionManager.createSession(); // Create default session
-        sessionId = newSession.sessionId;
-        logger.info(`No session ID provided, created and using new session: ${sessionId}`);
+      const newSession = this.sessionManager.createSession(); // Create default session
+      sessionId = newSession.sessionId;
+      logger.info(`No session ID provided, created and using new session: ${sessionId}`);
     }
     this.currentSessionId = sessionId ?? null;
     // Load session state AFTER panel creation but before sending initial status?
-    if (this.currentSessionId) { // Check if we have a valid ID before trying to load
+    if (this.currentSessionId) {
+      // Check if we have a valid ID before trying to load
       const sessionState = this.sessionManager.getSession(this.currentSessionId);
       if (sessionState) {
-          this.currentAssistants = sessionState.activeAssistantIds; // Load assistants from session
-          // ** Send initial messages history to webview **
-          PanelManager.currentPanel?.webview.postMessage({
-              command: 'loadChatHistory', 
-              payload: { messages: sessionState.messages }
-          });
-          logger.info(`Loaded state and message history for session: ${this.currentSessionId}`);
+        this.currentAssistants = sessionState.activeAssistantIds; // Load assistants from session
+        // ** Send initial messages history to webview **
+        PanelManager.currentPanel.webview.postMessage({
+          command: 'loadChatHistory',
+          payload: { messages: sessionState.messages },
+        });
+        logger.info(`Loaded state and message history for session: ${this.currentSessionId}`);
       } else {
-          logger.error(`Could not find session state for ID: ${this.currentSessionId}. Creating new.`);
-          const newSession = this.sessionManager.createSession();
-          this.currentSessionId = newSession.sessionId ?? null; // Ensure null if undefined
-          this.currentAssistants = [];
-          // ** Send empty message list for new session **
-          PanelManager.currentPanel?.webview.postMessage({
-              command: 'loadChatHistory', 
-              payload: { messages: [] }
-          });
+        logger.error(
+          `Could not find session state for ID: ${this.currentSessionId}. Creating new.`,
+        );
+        const newSession = this.sessionManager.createSession();
+        this.currentSessionId = newSession.sessionId ?? null; // Ensure null if undefined
+        this.currentAssistants = [];
+        // ** Send empty message list for new session **
+        PanelManager.currentPanel.webview.postMessage({
+          command: 'loadChatHistory',
+          payload: { messages: [] },
+        });
       }
     } else {
-        // This case should ideally not happen if we always ensure a session ID
-        logger.error("showPanel called without a valid currentSessionId.");
-        // Optionally create a session here too?
-        PanelManager.currentPanel?.webview.postMessage({
-              command: 'loadChatHistory', 
-              payload: { messages: [] }
-        });
+      // This case should ideally not happen if we always ensure a session ID
+      logger.error('showPanel called without a valid currentSessionId.');
+      // Optionally create a session here too?
+      PanelManager.currentPanel.webview.postMessage({
+        command: 'loadChatHistory',
+        payload: { messages: [] },
+      });
     }
 
     // Send initial config status (now potentially session-aware if needed)
@@ -252,19 +242,17 @@ export class PanelManager {
    * Handles request to get all available providers
    */
   private async handleGetProviders(): Promise<void> {
-    logger.info("Handling getProviders command...");
+    logger.info('Handling getProviders command...');
     try {
       const providers = getAllProviders();
 
       // Add configuration status to each provider
       const config = vscode.workspace.getConfiguration(
         // Extract key safely
-        CONFIG_NAMESPACE.split(".")[0] ?? "apexCoder",
+        CONFIG_NAMESPACE.split('.')[0] ?? 'apexCoder',
       );
-      const providerConfigKey = CONFIG_PROVIDER.split(".").pop();
-      const currentProvider = providerConfigKey
-        ? config.get<string>(providerConfigKey)
-        : undefined;
+      const providerConfigKey = CONFIG_PROVIDER.split('.').pop();
+      const currentProvider = providerConfigKey ? config.get<string>(providerConfigKey) : undefined;
 
       if (currentProvider) {
         const currentProviderLower = currentProvider.toLowerCase();
@@ -278,15 +266,15 @@ export class PanelManager {
       }
 
       PanelManager.currentPanel?.webview.postMessage({
-        command: "providersResult",
+        command: 'providersResult',
         payload: { providers },
       });
       logger.info(`Sent ${providers.length} providers to webview`);
     } catch (error) {
-      logger.error("Error getting providers:", error);
+      logger.error('Error getting providers:', error);
       this.postErrorToWebview(
         `Failed to get providers: ${error instanceof Error ? error.message : String(error)}`,
-        "getProviders",
+        'getProviders',
       );
     }
   }
@@ -299,34 +287,32 @@ export class PanelManager {
     // Safely extract properties with refined type guards
     let providerId: string | undefined;
     let config: Record<string, unknown> | undefined;
-    if (typeof payload === "object" && payload !== null) {
+    if (typeof payload === 'object' && payload !== null) {
       providerId =
-        typeof (payload as { providerId?: unknown }).providerId === "string"
+        typeof (payload as { providerId?: unknown }).providerId === 'string'
           ? (payload as { providerId: string }).providerId
           : undefined;
       config =
-        typeof (payload as { config?: unknown }).config === "object" &&
+        typeof (payload as { config?: unknown }).config === 'object' &&
         (payload as { config: unknown }).config !== null
           ? (payload as { config: Record<string, unknown> }).config
           : undefined;
     }
 
-    logger.info(
-      `Handling getModelsForProvider command for provider: ${providerId ?? "undefined"}`,
-    );
+    logger.info(`Handling getModelsForProvider command for provider: ${providerId ?? 'undefined'}`);
 
     if (!providerId) {
-      this.postErrorToWebview("Provider ID is required to get models");
+      this.postErrorToWebview('Provider ID is required to get models');
       return;
     }
 
     try {
       let baseUrl: string | undefined;
-      if (providerId.toLowerCase() === "ollama") {
+      if (providerId.toLowerCase() === 'ollama') {
         const vsConfig = vscode.workspace.getConfiguration(
-          CONFIG_NAMESPACE.split(".")[0] ?? "apexCoder",
+          CONFIG_NAMESPACE.split('.')[0] ?? 'apexCoder',
         );
-        const baseConfigKey = CONFIG_BASE_URL.split(".").pop();
+        const baseConfigKey = CONFIG_BASE_URL.split('.').pop();
         if (baseConfigKey) {
           baseUrl = vsConfig.get<string>(baseConfigKey);
         }
@@ -334,25 +320,23 @@ export class PanelManager {
 
       // Use the imported function directly
       const models = await getModelsForProviderDetails(providerId, {
-        ...(config ?? {}),
+        ...config,
         baseUrl: baseUrl ?? (config?.baseUrl as string | undefined),
       });
 
       PanelManager.currentPanel?.webview.postMessage({
-        command: "modelsResult",
+        command: 'modelsResult',
         payload: {
           providerId,
           models,
         },
       });
-      logger.info(
-        `Sent ${models.length} models for provider ${providerId} to webview`,
-      );
+      logger.info(`Sent ${models.length} models for provider ${providerId} to webview`);
     } catch (error) {
       logger.error(`Error getting models for provider ${providerId}:`, error);
       this.postErrorToWebview(
         `Failed to get models for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`,
-        "getModelsForProvider",
+        'getModelsForProvider',
       );
     }
   }
@@ -361,19 +345,19 @@ export class PanelManager {
    * Handles request to get all assistant profiles.
    */
   private async handleGetAssistantProfiles(): Promise<void> {
-    logger.info("Handling getAssistantProfiles command...");
+    logger.info('Handling getAssistantProfiles command...');
     try {
       const profiles = getAssistantProfiles(); // Uses the function from assistantManager
       PanelManager.currentPanel?.webview.postMessage({
-        command: "assistantProfilesList", // Command for the webview to listen to
+        command: 'assistantProfilesList', // Command for the webview to listen to
         payload: profiles,
       });
       logger.info(`Sent ${profiles.length} assistant profiles to webview`);
     } catch (error) {
-      logger.error("Error getting assistant profiles:", error);
+      logger.error('Error getting assistant profiles:', error);
       this.postErrorToWebview(
         `Failed to get assistant profiles: ${error instanceof Error ? error.message : String(error)}`,
-        "getAssistantProfiles",
+        'getAssistantProfiles',
       );
     }
   }
@@ -384,26 +368,24 @@ export class PanelManager {
    */
   private async handleDeleteAssistantProfile(payload: unknown): Promise<void> {
     let profileId: string | undefined;
-    if (typeof payload === "object" && payload !== null) {
+    if (typeof payload === 'object' && payload !== null) {
       profileId =
-        typeof (payload as { profileId?: unknown }).profileId === "string"
+        typeof (payload as { profileId?: unknown }).profileId === 'string'
           ? (payload as { profileId: string }).profileId
           : undefined;
     }
 
-    logger.info(
-      `Handling deleteAssistantProfile command for ID: ${profileId ?? "undefined"}`,
-    );
+    logger.info(`Handling deleteAssistantProfile command for ID: ${profileId ?? 'undefined'}`);
 
     if (!profileId) {
-      this.postErrorToWebview("Profile ID is required for deletion");
+      this.postErrorToWebview('Profile ID is required for deletion');
       return;
     }
 
     try {
       const success = await deleteAssistantProfile(profileId);
       PanelManager.currentPanel?.webview.postMessage({
-        command: "assistantProfileDeleted",
+        command: 'assistantProfileDeleted',
         payload: { success, profileId }, // Send success status back
       });
       if (success) {
@@ -418,7 +400,7 @@ export class PanelManager {
       logger.error(`Error deleting assistant profile ${profileId}:`, error);
       this.postErrorToWebview(
         `Failed to delete profile ${profileId}: ${error instanceof Error ? error.message : String(error)}`,
-        "deleteAssistantProfile",
+        'deleteAssistantProfile',
       );
     }
   }
@@ -428,13 +410,13 @@ export class PanelManager {
    * @param payload The payload containing the new profile data.
    */
   private async handleAddAssistantProfile(payload: unknown): Promise<void> {
-    logger.info("Handling addAssistantProfile command...");
+    logger.info('Handling addAssistantProfile command...');
     // TODO: Add validation for the payload structure against AssistantProfile interface
     // This requires importing AssistantProfile type
-    const newProfile = payload as any; // Use any temporarily, replace with AssistantProfile and validation
+    const newProfile = payload as Partial<AssistantProfile>; // Use Partial since we're validating below
     if (!newProfile || typeof newProfile !== 'object' || !newProfile.id || !newProfile.name) {
-        this.postErrorToWebview("Invalid profile data received for add.", "addAssistantProfile");
-        return;
+      this.postErrorToWebview('Invalid profile data received for add.', 'addAssistantProfile');
+      return;
     }
 
     try {
@@ -443,8 +425,8 @@ export class PanelManager {
       logger.info(`Added assistant profile ${newProfile.id} - ${newProfile.name}`);
       // Post success message or the updated list back to webview
       PanelManager.currentPanel?.webview.postMessage({
-          command: "assistantProfileAdded",
-          payload: { success: true, profile: newProfile }
+        command: 'assistantProfileAdded',
+        payload: { success: true, profile: newProfile },
       });
       // Optionally refresh the full list
       // await this.handleGetAssistantProfiles();
@@ -452,7 +434,7 @@ export class PanelManager {
       logger.error(`Error adding assistant profile ${newProfile.id}:`, error);
       this.postErrorToWebview(
         `Failed to add profile ${newProfile.name}: ${error instanceof Error ? error.message : String(error)}`,
-        "addAssistantProfile",
+        'addAssistantProfile',
       );
     }
   }
@@ -462,13 +444,21 @@ export class PanelManager {
    * @param payload The payload containing the updated profile data.
    */
   private async handleUpdateAssistantProfile(payload: unknown): Promise<void> {
-    logger.info("Handling updateAssistantProfile command...");
+    logger.info('Handling updateAssistantProfile command...');
     // TODO: Add validation for the payload structure against AssistantProfile interface
     // This requires importing AssistantProfile type
-    const updatedProfile = payload as any; // Use any temporarily, replace with AssistantProfile and validation
-     if (!updatedProfile || typeof updatedProfile !== 'object' || !updatedProfile.id || !updatedProfile.name) {
-        this.postErrorToWebview("Invalid profile data received for update.", "updateAssistantProfile");
-        return;
+    const updatedProfile = payload as Partial<AssistantProfile>; // Use Partial since we're validating below
+    if (
+      !updatedProfile ||
+      typeof updatedProfile !== 'object' ||
+      !updatedProfile.id ||
+      !updatedProfile.name
+    ) {
+      this.postErrorToWebview(
+        'Invalid profile data received for update.',
+        'updateAssistantProfile',
+      );
+      return;
     }
 
     try {
@@ -476,12 +466,12 @@ export class PanelManager {
       const success = await updateAssistantProfile(updatedProfile);
       logger.info(`Updated assistant profile ${updatedProfile.id} - ${updatedProfile.name}`);
       PanelManager.currentPanel?.webview.postMessage({
-          command: "assistantProfileUpdated",
-          payload: { success: success, profile: updatedProfile }
+        command: 'assistantProfileUpdated',
+        payload: { success: success, profile: updatedProfile },
       });
       if (!success) {
-         logger.warn(`Profile ${updatedProfile.id} not found for update.`);
-         // Maybe send specific feedback?
+        logger.warn(`Profile ${updatedProfile.id} not found for update.`);
+        // Maybe send specific feedback?
       }
       // Optionally refresh the full list
       // await this.handleGetAssistantProfiles();
@@ -489,7 +479,7 @@ export class PanelManager {
       logger.error(`Error updating assistant profile ${updatedProfile.id}:`, error);
       this.postErrorToWebview(
         `Failed to update profile ${updatedProfile.name}: ${error instanceof Error ? error.message : String(error)}`,
-        "updateAssistantProfile",
+        'updateAssistantProfile',
       );
     }
   }
@@ -498,25 +488,25 @@ export class PanelManager {
    * Handles request to get the names of all available tools.
    */
   private handleGetAvailableTools(): void {
-    logger.info("Handling getAvailableTools command...");
+    logger.info('Handling getAvailableTools command...');
     try {
       // We need the panel context to potentially create tools if not already done,
       // but here we assume they might be accessible statically or pre-created.
       // For simplicity, let's just get the keys from a dummy creation.
       // A better approach might involve a dedicated ToolRegistry service.
-      const tools = createAllTools(undefined); // Pass undefined as panel might not be needed just for keys
+      const tools = createAllTools(); // Pass undefined as panel might not be needed just for keys
       const toolNames = Object.keys(tools);
-      
+
       PanelManager.currentPanel?.webview.postMessage({
-        command: "availableToolsList",
+        command: 'availableToolsList',
         payload: toolNames,
       });
       logger.info(`Sent ${toolNames.length} available tool names to webview.`);
     } catch (error) {
-      logger.error("Error getting available tools:", error);
+      logger.error('Error getting available tools:', error);
       this.postErrorToWebview(
         `Failed to get available tools: ${error instanceof Error ? error.message : String(error)}`,
-        "getAvailableTools",
+        'getAvailableTools',
       );
     }
   }
@@ -525,33 +515,26 @@ export class PanelManager {
    * Sends the current configuration and model initialization status to the webview.
    */
   private async sendConfigStatus(): Promise<void> {
-    logger.info("Handling getConfigStatus command...");
+    logger.info('Handling getConfigStatus command...');
     const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
     // Safe key derivation
-    const providerConfigKey = CONFIG_PROVIDER.split(".").pop();
-    const modelConfigKey = CONFIG_MODEL_ID.split(".").pop();
+    const providerConfigKey = CONFIG_PROVIDER.split('.').pop();
+    const modelConfigKey = CONFIG_MODEL_ID.split('.').pop();
 
     if (!providerConfigKey || !modelConfigKey) {
-      logger.error("Internal error: Could not derive configuration keys.");
+      logger.error('Internal error: Could not derive configuration keys.');
       // Optionally post error to webview
-      this.postErrorToWebview(
-        "Internal error retrieving configuration keys.",
-        "getConfigStatus",
-      );
+      this.postErrorToWebview('Internal error retrieving configuration keys.', 'getConfigStatus');
       return;
     }
 
     const provider = config.get<string>(providerConfigKey);
     const modelId = config.get<string>(modelConfigKey);
-    const secretKey = provider
-      ? `${SECRET_API_KEY_PREFIX}${provider.toLowerCase()}`
-      : undefined;
-    const apiKeySet = secretKey
-      ? !!(await this.context.secrets.get(secretKey))
-      : false;
+    const secretKey = provider ? `${SECRET_API_KEY_PREFIX}${provider.toLowerCase()}` : undefined;
+    const apiKeySet = secretKey ? !!(await this.context.secrets.get(secretKey)) : false;
 
     // Attempt to initialize model only if basic config seems present
-    if (provider && (apiKeySet || provider.toLowerCase() === "ollama")) {
+    if (provider && (apiKeySet || provider.toLowerCase() === 'ollama')) {
       // Use the already initialized state if available, otherwise try initializing
       if (!this.isModelInitialized) {
         await this.tryInitializeModel(); // Update internal state
@@ -563,7 +546,7 @@ export class PanelManager {
 
     const payload: ConfigStatusPayload = {
       providerSet: !!provider,
-      apiKeySet: apiKeySet || provider?.toLowerCase() === "ollama",
+      apiKeySet: apiKeySet || provider?.toLowerCase() === 'ollama',
       isModelInitialized: this.isModelInitialized,
       provider: provider, // OK if provider is undefined
       modelId: modelId, // OK if modelId is undefined
@@ -571,20 +554,18 @@ export class PanelManager {
 
     // Use optional chaining for postMessage
     PanelManager.currentPanel?.webview.postMessage({
-      command: "configStatus",
+      command: 'configStatus',
       payload,
     });
-    logger.info("Sent configStatus to webview:", payload);
+    logger.info('Sent configStatus to webview:', payload);
   }
 
   /**
    * Handles saving configuration received from the webview.
    * Reduced complexity by extracting update logic.
    */
-  private async handleSaveConfiguration(
-    payload: SaveConfigPayload,
-  ): Promise<void> {
-    logger.info("Handling saveConfiguration command...");
+  private async handleSaveConfiguration(payload: SaveConfigPayload): Promise<void> {
+    logger.info('Handling saveConfiguration command...');
     const { provider, modelId, apiKey, baseUrl } = payload;
 
     if (!this.validateSaveConfigPayload(payload)) return; // Validation helper
@@ -592,7 +573,7 @@ export class PanelManager {
     try {
       await this.updateVsCodeConfiguration(provider, modelId, baseUrl);
 
-      if (apiKey && provider.toLowerCase() !== "ollama") {
+      if (apiKey && provider.toLowerCase() !== 'ollama') {
         // Only store if provided and not ollama
         await this.storeApiKey(provider, apiKey);
       }
@@ -604,14 +585,9 @@ export class PanelManager {
         // Floating promise ok here
         `Configuration for ${provider} saved successfully.`,
       );
-      logger.info("Configuration saved and model re-initialization attempted.");
+      logger.info('Configuration saved and model re-initialization attempted.');
 
-      await this.sendConfigSavedStatus(
-        provider,
-        !!apiKey,
-        initSuccess,
-        modelId,
-      );
+      await this.sendConfigSavedStatus(provider, !!apiKey, initSuccess, modelId);
     } catch (error: unknown) {
       this.handleSaveConfigError(error);
     }
@@ -621,18 +597,12 @@ export class PanelManager {
   private validateSaveConfigPayload(payload: SaveConfigPayload): boolean {
     const { provider, apiKey } = payload;
     if (!provider) {
-      this.postErrorToWebview(
-        "Provider name is required.",
-        "saveConfiguration",
-      );
+      this.postErrorToWebview('Provider name is required.', 'saveConfiguration');
       return false;
     }
     // API key is required unless it's Ollama
-    if (!apiKey && provider.toLowerCase() !== "ollama") {
-      this.postErrorToWebview(
-        `API Key is required for ${provider}.`,
-        "saveConfiguration",
-      );
+    if (!apiKey && provider.toLowerCase() !== 'ollama') {
+      this.postErrorToWebview(`API Key is required for ${provider}.`, 'saveConfiguration');
       return false;
     }
     return true;
@@ -644,29 +614,17 @@ export class PanelManager {
     baseUrl?: string,
   ): Promise<void> {
     const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-    const providerKey = CONFIG_PROVIDER.split(".").pop();
-    const modelKey = CONFIG_MODEL_ID.split(".").pop();
-    const baseUrlKey = CONFIG_BASE_URL.split(".").pop();
+    const providerKey = CONFIG_PROVIDER.split('.').pop();
+    const modelKey = CONFIG_MODEL_ID.split('.').pop();
+    const baseUrlKey = CONFIG_BASE_URL.split('.').pop();
 
     if (!providerKey || !modelKey || !baseUrlKey) {
-      throw new Error("Internal error: Could not derive configuration keys.");
+      throw new Error('Internal error: Could not derive configuration keys.');
     }
 
-    await config.update(
-      providerKey,
-      provider,
-      vscode.ConfigurationTarget.Global,
-    );
-    await config.update(
-      modelKey,
-      modelId ?? undefined,
-      vscode.ConfigurationTarget.Global,
-    );
-    await config.update(
-      baseUrlKey,
-      baseUrl ?? undefined,
-      vscode.ConfigurationTarget.Global,
-    );
+    await config.update(providerKey, provider, vscode.ConfigurationTarget.Global);
+    await config.update(modelKey, modelId ?? undefined, vscode.ConfigurationTarget.Global);
+    await config.update(baseUrlKey, baseUrl ?? undefined, vscode.ConfigurationTarget.Global);
   }
 
   private async storeApiKey(provider: string, apiKey: string): Promise<void> {
@@ -691,22 +649,22 @@ export class PanelManager {
   ): Promise<void> {
     const finalPayload: ConfigStatusPayload = {
       providerSet: true,
-      apiKeySet: apiKeySet || provider.toLowerCase() === "ollama",
+      apiKeySet: apiKeySet || provider.toLowerCase() === 'ollama',
       isModelInitialized: initSuccess,
       provider: provider,
       modelId: modelId,
     };
     // Use optional chaining
     PanelManager.currentPanel?.webview.postMessage({
-      command: "configSaved",
+      command: 'configSaved',
       payload: finalPayload,
     });
   }
 
   private handleSaveConfigError(error: unknown): void {
-    logger.error("Error saving configuration:", error);
-    const errorMsg = `Failed to save configuration. Check logs. Error: ${error instanceof Error ? error.message : String(error)}`;
-    this.postErrorToWebview(errorMsg, "saveConfiguration");
+    logger.error('Error saving configuration:', error);
+    const errorMessage = `Failed to save configuration. Check logs. Error: ${error instanceof Error ? error.message : String(error)}`;
+    this.postErrorToWebview(errorMessage, 'saveConfiguration');
     this.isModelInitialized = false;
     resetAiSdkModel();
   }
@@ -718,21 +676,19 @@ export class PanelManager {
    */
   private async handleSendMessage(payload: SendMessagePayload): Promise<void> {
     if (!this.currentSessionId) {
-        this.postErrorToWebview("No active session found.", "sendMessage");
-        return;
+      this.postErrorToWebview('No active session found.', 'sendMessage');
+      return;
     }
     const sessionState = this.sessionManager.getSession(this.currentSessionId);
     if (!sessionState) {
-        this.postErrorToWebview(`Session ${this.currentSessionId} not found.`, "sendMessage");
-        return;
+      this.postErrorToWebview(`Session ${this.currentSessionId} not found.`, 'sendMessage');
+      return;
     }
     // Update local currentAssistants based on loaded session state
     this.currentAssistants = sessionState.activeAssistantIds;
 
     if (!this.isModelInitialized) {
-      this.postErrorToWebview(
-        "AI model is not initialized. Please check configuration.",
-      );
+      this.postErrorToWebview('AI model is not initialized. Please check configuration.');
       return;
     }
     const { id: streamId, text } = payload;
@@ -740,115 +696,114 @@ export class PanelManager {
 
     // --- Basic Target Assistant Identification (Placeholder) ---
     let targetAssistantId: string | null = null;
-    const mentionMatch = text.match(/^@([\w-]+):\s*/);
+    const mentionMatch = /^@([\w-]+):\s*/.exec(text);
     if (mentionMatch) {
       const mentionedName = mentionMatch[1];
       // Use session's active assistants
-      if (sessionState.activeAssistantIds.includes(mentionedName)) { 
+      if (sessionState.activeAssistantIds.includes(mentionedName)) {
         targetAssistantId = mentionedName;
         logger.info(`Message targets assistant: ${targetAssistantId}`);
         // TODO: Remove the mention from the text passed to the model?
         // text = text.substring(mentionMatch[0].length);
       } else {
-         logger.warn(`Mentioned assistant '${mentionedName}' not found in current session.`);
+        logger.warn(`Mentioned assistant '${mentionedName}' not found in current session.`);
       }
     } else if (sessionState.activeAssistantIds.length === 1) {
-        targetAssistantId = sessionState.activeAssistantIds[0];
-        logger.info(`Message implicitly targets the only assistant: ${targetAssistantId}`);
+      targetAssistantId = sessionState.activeAssistantIds[0];
+      logger.info(`Message implicitly targets the only assistant: ${targetAssistantId}`);
     } else {
-        targetAssistantId = sessionState.activeAssistantIds.length > 0 ? sessionState.activeAssistantIds[0] : null;
-        logger.info(`Multiple assistants, defaulting target to: ${targetAssistantId ?? 'None (logic TBD)'}`);
+      targetAssistantId =
+        sessionState.activeAssistantIds.length > 0 ? sessionState.activeAssistantIds[0] : null;
+      logger.info(
+        `Multiple assistants, defaulting target to: ${targetAssistantId ?? 'None (logic TBD)'}`,
+      );
     }
     // TODO: Use the targetAssistantId to select the correct profile/model
     let assistantProfile: AssistantProfile | undefined;
     if (targetAssistantId) {
-        assistantProfile = getAssistantProfileById(targetAssistantId);
-        if (!assistantProfile) {
-            logger.error(`Could not find profile for targeted assistant ID: ${targetAssistantId}`);
-            // Maybe post an error back to the UI?
-            // For now, proceed without a specific profile, using the default model.
-        } else {
-            logger.info(`Using profile for assistant: ${assistantProfile.name}`);
-            // TODO: Load model based on profile.modelConfig
-            // model = await getLanguageModelForProfile(assistantProfile);
-            // If model loading fails, fallback or error?
-        }
+      assistantProfile = getAssistantProfileById(targetAssistantId);
+      if (assistantProfile) {
+        logger.info(`Using profile for assistant: ${assistantProfile.name}`);
+        // TODO: Load model based on profile.modelConfig
+        // model = await getLanguageModelForProfile(assistantProfile);
+        // If model loading fails, fallback or error?
+      } else {
+        logger.error(`Could not find profile for targeted assistant ID: ${targetAssistantId}`);
+        // Maybe post an error back to the UI?
+        // For now, proceed without a specific profile, using the default model.
+      }
     }
     // --- End Placeholder ---
 
     // Use the profile-specific model if loaded, otherwise the default
     const modelToUse = getLanguageModel(); // Placeholder: model; // Replace with actual logic
     if (!modelToUse) {
-      this.postErrorToWebview(
-        "AI model is not initialized. Check configuration.",
-      );
+      this.postErrorToWebview('AI model is not initialized. Check configuration.');
       return;
     }
 
     try {
       // Prepend profile instructions if available
-      const systemPrompt = assistantProfile?.instructions ? `${assistantProfile.instructions}\n\n---\n\n` : "";
+      const systemPrompt = assistantProfile?.instructions
+        ? `${assistantProfile.instructions}\n\n---\n\n`
+        : '';
       const userMessageText = systemPrompt + text;
 
       // ** Add user message to session state BEFORE sending to AI **
       const userMessageForState: Message = {
-          id: uuidv4(), // Add unique ID
-          role: 'user',
-          content: text 
+        id: uuidv4(), // Add unique ID
+        role: 'user',
+        content: text,
       };
       sessionState.messages.push(userMessageForState);
       // No need to await save here, save after AI response
 
       // Replace deprecated CoreTool with Tool
-      const tools: Record<string, Tool> = createAllTools(PanelManager.currentPanel) as Record<string, Tool>; // Cast needed due to wrapper return type
+      const tools: Record<string, Tool> = createAllTools(PanelManager.currentPanel); // Cast needed due to wrapper return type
 
       logger.info(`[${streamId}] Sending to AI: ${userMessageText}`);
-      logger.info(
-        `[${streamId}] Tools configured: ${Object.keys(tools).join(", ") || "None"}`,
-      );
+      logger.info(`[${streamId}] Tools configured: ${Object.keys(tools).join(', ') || 'None'}`);
       logger.info(`[${streamId}] Attempting streamText...`);
 
       // Infer streamResult type directly, providing both generic arguments
-      let streamResult: AISdkStreamTextResult<typeof tools, never> | null =
-        null;
+      let streamResult: AISdkStreamTextResult<typeof tools, never> | null = null;
 
       try {
         streamResult = await streamText({
           model: modelToUse,
           // Send combined prompt to model, but use original text for history
-          prompt: userMessageText, 
+          prompt: userMessageText,
           tools: tools,
           async onChunk({ chunk }) {
             // console.log('CHUNK:', chunk); // Debugging
             switch (chunk.type) {
-              case "text-delta":
+              case 'text-delta': {
                 PanelManager.currentPanel?.webview.postMessage({
-                  command: "aiResponseChunk",
+                  command: 'aiResponseChunk',
                   payload: { id: streamId, text: chunk.textDelta },
                 });
                 break;
-              case "tool-call":
+              }
+              case 'tool-call': {
                 PanelManager.currentPanel?.webview.postMessage({
-                  command: "aiThinkingStep",
+                  command: 'aiThinkingStep',
                   payload: {
                     id: streamId,
                     text: `Calling tool: ${chunk.toolName}...`,
                   },
                 });
                 break;
+              }
               // Handle other chunk types if necessary
             }
           },
         });
         logger.info(`[${streamId}] streamText call completed successfully.`);
       } catch (streamError: unknown) {
-        logger.error(
-          `[${streamId}] Error during streamText call:`,
-          streamError,
-        );
+        logger.error(`[${streamId}] Error during streamText call:`, streamError);
         this.postErrorToWebview(
           `AI Stream Request Failed: ${streamError instanceof Error ? streamError.message : String(streamError)}`,
-          "sendMessage",
+          'sendMessage',
         );
         // ** Save session even if stream fails? Or only on success? **
         // Consider saving here to capture the user message at least
@@ -866,9 +821,7 @@ export class PanelManager {
         const textExists = !!streamResult.text;
         // Await toolCalls before accessing length
         const toolCallsResult = await streamResult.toolCalls;
-        const toolCallsCount = Array.isArray(toolCallsResult)
-          ? toolCallsResult.length
-          : 0;
+        const toolCallsCount = Array.isArray(toolCallsResult) ? toolCallsResult.length : 0;
 
         logger.info(`[${streamId}] Final stream result details:`, {
           finishReason,
@@ -877,74 +830,77 @@ export class PanelManager {
           toolCalls: toolCallsCount, // Log number of tool calls
         });
       } catch (logError: unknown) {
-        logger.error("Error logging final stream result:", logError);
+        logger.error('Error logging final stream result:', logError);
       }
 
       logger.info(`Finished request ${streamId}. Sending aiResponseComplete.`);
       PanelManager.currentPanel?.webview.postMessage({
-        command: "aiResponseComplete",
+        command: 'aiResponseComplete',
         payload: { id: streamId },
       });
 
       // --- After AI response is complete ---
       // Add AI response and tool results/calls to messages array and save
       if (streamResult) {
-          try {
-              // Get the final assistant message content
-              const assistantContent = await streamResult.text;
-              if (assistantContent) {
-                 sessionState.messages.push({ 
-                     id: uuidv4(), // Add unique ID
-                     role: 'assistant',
-                     content: assistantContent 
-                 });
-              }
-
-              // Handle tool calls and results
-              const toolCalls = await streamResult.toolCalls;
-              const toolResults = await streamResult.toolResults;
-
-              // Vercel SDK Message type can handle tool_calls and tool_results roles directly
-              // Assuming toolCalls/toolResults are structured appropriately
-              if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-                 sessionState.messages.push({ 
-                    id: uuidv4(), // Add unique ID
-                    role: 'assistant', // Tool calls are from assistant
-                    content: '', // Content might be empty for tool calls
-                    toolCalls: toolCalls // Use the dedicated property
-                 }); 
-              }
-              if (Array.isArray(toolResults) && toolResults.length > 0) {
-                 sessionState.messages.push({ 
-                    id: uuidv4(), // Add unique ID
-                    role: 'tool', // Use 'tool' role for results
-                    content: '', // Content might be empty for tool results
-                    toolResults: toolResults // Use the dedicated property
-                 });
-              }
-          } catch (resultProcessingError) {
-              logger.error(`[${streamId}] Error processing stream final result:`, resultProcessingError);
-              sessionState.messages.push({ 
-                  id: uuidv4(), // Add unique ID
-                  role: 'assistant',
-                  content: "[Error processing final response]" 
-              });
-          }
-      } else {
-          sessionState.messages.push({ 
+        try {
+          // Get the final assistant message content
+          const assistantContent = await streamResult.text;
+          if (assistantContent) {
+            sessionState.messages.push({
               id: uuidv4(), // Add unique ID
               role: 'assistant',
-              content: "[Error: No response stream result]" 
+              content: assistantContent,
+            });
+          }
+
+          // Handle tool calls and results
+          const toolCalls = await streamResult.toolCalls;
+          const toolResults = await streamResult.toolResults;
+
+          // Vercel SDK Message type can handle tool_calls and tool_results roles directly
+          // Assuming toolCalls/toolResults are structured appropriately
+          if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+            sessionState.messages.push({
+              id: uuidv4(), // Add unique ID
+              role: 'assistant', // Tool calls are from assistant
+              content: '', // Content might be empty for tool calls
+              toolCalls: toolCalls, // Use the dedicated property
+            });
+          }
+          if (Array.isArray(toolResults) && toolResults.length > 0) {
+            sessionState.messages.push({
+              id: uuidv4(), // Add unique ID
+              role: 'tool', // Use 'tool' role for results
+              content: '', // Content might be empty for tool results
+              toolResults: toolResults, // Use the dedicated property
+            });
+          }
+        } catch (resultProcessingError) {
+          logger.error(
+            `[${streamId}] Error processing stream final result:`,
+            resultProcessingError,
+          );
+          sessionState.messages.push({
+            id: uuidv4(), // Add unique ID
+            role: 'assistant',
+            content: '[Error processing final response]',
           });
+        }
+      } else {
+        sessionState.messages.push({
+          id: uuidv4(), // Add unique ID
+          role: 'assistant',
+          content: '[Error: No response stream result]',
+        });
       }
-      
+
       // ** Save the updated session state **
-      await this.sessionManager.saveSession(this.currentSessionId); 
+      await this.sessionManager.saveSession(this.currentSessionId);
       // --- End Example ---
     } catch (error: unknown) {
-      const errorMsg = `AI Request Failed: ${error instanceof Error ? error.message : String(error)}`;
-      logger.error("Error processing AI request:", error);
-      this.postErrorToWebview(errorMsg, "sendMessage");
+      const errorMessage = `AI Request Failed: ${error instanceof Error ? error.message : String(error)}`;
+      logger.error('Error processing AI request:', error);
+      this.postErrorToWebview(errorMessage, 'sendMessage');
     }
   }
 
@@ -954,31 +910,28 @@ export class PanelManager {
    * @param forceReinitialize If true, forces re-initialization even if already initialized.
    * @returns True if initialization was successful, false otherwise.
    */
-  private async tryInitializeModel(
-    forceReinitialize = false,
-    config?: AiConfig,
-  ): Promise<boolean> {
+  private async tryInitializeModel(forceReinitialize = false, config?: AiConfig): Promise<boolean> {
     if (this.isModelInitialized && !forceReinitialize) {
-      logger.info("Model already initialized.");
+      logger.info('Model already initialized.');
       return true;
     }
-    logger.info("Attempting to initialize AI model...");
+    logger.info('Attempting to initialize AI model...');
     this.isModelInitialized = false; // Assume failure until success
     resetAiSdkModel(); // Reset core SDK state before trying
 
     try {
       const aiConfig = config ?? (await this.loadConfiguration()); // Use ??
       if (!aiConfig) {
-        logger.warn("AI configuration is incomplete. Cannot initialize model.");
+        logger.warn('AI configuration is incomplete. Cannot initialize model.');
         return false;
       }
       await initializeAiSdkModel(aiConfig);
       this.isModelInitialized = true;
-      logger.info("AI Model initialized successfully.");
+      logger.info('AI Model initialized successfully.');
       return true;
     } catch (error: unknown) {
       // Use unknown
-      logger.error("Failed to initialize AI model:", error);
+      logger.error('Failed to initialize AI model:', error);
       this.isModelInitialized = false;
       return false;
     }
@@ -991,14 +944,12 @@ export class PanelManager {
   private async loadConfiguration(): Promise<AiConfig | null> {
     const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
     // Safe key derivation
-    const providerConfigKey = CONFIG_PROVIDER.split(".").pop();
-    const modelConfigKey = CONFIG_MODEL_ID.split(".").pop();
-    const baseConfigKey = CONFIG_BASE_URL.split(".").pop();
+    const providerConfigKey = CONFIG_PROVIDER.split('.').pop();
+    const modelConfigKey = CONFIG_MODEL_ID.split('.').pop();
+    const baseConfigKey = CONFIG_BASE_URL.split('.').pop();
 
     if (!providerConfigKey || !modelConfigKey || !baseConfigKey) {
-      logger.error(
-        "Internal error: Could not derive configuration keys for loading.",
-      );
+      logger.error('Internal error: Could not derive configuration keys for loading.');
       return null;
     }
 
@@ -1012,7 +963,7 @@ export class PanelManager {
     const secretKey = `${SECRET_API_KEY_PREFIX}${provider.toLowerCase()}`;
     const apiKey = await this.context.secrets.get(secretKey);
 
-    if (!apiKey && provider.toLowerCase() !== "ollama") {
+    if (!apiKey && provider.toLowerCase() !== 'ollama') {
       logger.warn(`API key for ${provider} not found.`);
       return null;
     }
@@ -1041,7 +992,7 @@ export class PanelManager {
     // Use void for floating promise
     void vscode.window.showErrorMessage(`Apex Coder: ${message}`);
     PanelManager.currentPanel?.webview.postMessage({
-      command: "error",
+      command: 'error',
       payload: source ? { message, source } : { message },
     });
   }
@@ -1053,25 +1004,24 @@ export class PanelManager {
     PanelManager.currentPanel = undefined;
     this.isModelInitialized = false; // Reset state when panel closes
     resetAiSdkModel();
-    logger.info("Panel disposed and AI state reset.");
+    logger.info('Panel disposed and AI state reset.');
     // Dispose of any other resources if needed
   }
 
   // --- Message Handlers ---
   private handleAlert(payload: unknown): void {
     // Refined type guard for payload with text property, checking for key existence
-    let message = "Unknown alert from webview";
+    let message = 'Unknown alert from webview';
     if (
-      typeof payload === "object" &&
+      typeof payload === 'object' &&
       payload !== null &&
-      Object.prototype.hasOwnProperty.call(payload, "text")
+      Object.prototype.hasOwnProperty.call(payload, 'text')
     ) {
       const textValue = (payload as { text: unknown }).text;
-      if (typeof textValue === "string") {
-        message = textValue;
-      } else {
-        message = `Received alert with non-string text: ${String(textValue)}`;
-      }
+      message =
+        typeof textValue === 'string'
+          ? textValue
+          : `Received alert with non-string text: ${String(textValue)}`;
     } else if (payload !== null) {
       message = `Received non-object alert payload: ${String(payload)}`;
     }
@@ -1088,37 +1038,175 @@ export class PanelManager {
   public setCurrentAssistants(assistantIds: string[]): void {
     // TODO: Integrate with actual session management
     this.currentAssistants = assistantIds;
-    this.currentSessionId = "session_" + Date.now(); // Simple session ID for now
-    logger.info(`Set current assistants for session ${this.currentSessionId}: ${assistantIds.join(", ")}`);
+    this.currentSessionId = 'session_' + Date.now(); // Simple session ID for now
+    logger.info(
+      `Set current assistants for session ${this.currentSessionId}: ${assistantIds.join(', ')}`,
+    );
     // Example: Add a default assistant if none are set (for testing)
     if (this.currentAssistants.length === 0) {
-        const profiles = getAssistantProfiles();
-        if (profiles.length > 0) {
-            this.currentAssistants.push(profiles[0].id);
-             logger.info(`Added default assistant: ${profiles[0].id}`);
-        }
+      const profiles = getAssistantProfiles();
+      if (profiles.length > 0) {
+        this.currentAssistants.push(profiles[0].id);
+        logger.info(`Added default assistant: ${profiles[0].id}`);
+      }
     }
   }
 
   // Example: Method to add assistant to current session
   public async addAssistantToCurrentSession(assistantId: string): Promise<void> {
-      if (!this.currentSessionId) {
-          logger.warn("Cannot add assistant: No active session.");
-          return;
-      }
-      const sessionState = this.sessionManager.getSession(this.currentSessionId);
-      if (sessionState && !sessionState.activeAssistantIds.includes(assistantId)) {
-          sessionState.activeAssistantIds.push(assistantId);
-          this.currentAssistants = sessionState.activeAssistantIds; // Update local copy
-          await this.sessionManager.saveSession(this.currentSessionId);
-          logger.info(`Added assistant ${assistantId} to session ${this.currentSessionId}`);
-          // TODO: Notify webview?
-      }
+    if (!this.currentSessionId) {
+      logger.warn('Cannot add assistant: No active session.');
+      return;
+    }
+    const sessionState = this.sessionManager.getSession(this.currentSessionId);
+    if (sessionState && !sessionState.activeAssistantIds.includes(assistantId)) {
+      sessionState.activeAssistantIds.push(assistantId);
+      this.currentAssistants = sessionState.activeAssistantIds; // Update local copy
+      await this.sessionManager.saveSession(this.currentSessionId);
+      logger.info(`Added assistant ${assistantId} to session ${this.currentSessionId}`);
+      // TODO: Notify webview?
+    }
   }
 
   // TODO: Add removeAssistantFromCurrentSession
 
-  // --- Scheduled Action Execution --- 
+  // --- Session Management Handlers ---
+
+  private async handleCreateNewSession(): Promise<void> {
+    logger.info('[PanelManager] Handling createNewSession command...');
+    try {
+      const newSession = this.sessionManager.createSession(); // Creates and saves
+      // Switch to the new session immediately?
+      await this.switchToSessionState(newSession.sessionId);
+      // Send updated list back to UI?
+      await this.handleGetSessionList();
+    } catch (error) {
+      logger.error('Error creating new session:', error);
+      this.postErrorToWebview('Failed to create new session', 'createNewSession');
+    }
+  }
+
+  private async handleGetSessionList(): Promise<void> {
+    logger.info('[PanelManager] Handling getSessionList command...');
+    try {
+      const sessions = this.sessionManager.getAllSessions();
+      // Format session list for UI (e.g., ID and maybe first message/last update)
+      const sessionList = sessions
+        .map((s: SessionState) => ({
+          // Add type for s
+          id: s.sessionId,
+          createdAt: s.createdAt,
+          lastUpdatedAt: s.lastUpdatedAt,
+          // Extract title from first message or use date?
+          title:
+            s.messages[0]?.content?.slice(0, 30) ||
+            `Session ${new Date(s.createdAt).toLocaleString()}`,
+          assistantCount: s.activeAssistantIds.length,
+          // Add type assertion for sort parameters
+        }))
+        .sort((a, b) => (b.lastUpdatedAt || 0) - (a.lastUpdatedAt || 0)); // Add type assertions and default value for safety
+
+      PanelManager.currentPanel?.webview.postMessage({
+        command: 'sessionList',
+        payload: { sessions: sessionList, activeSessionId: this.currentSessionId },
+      });
+    } catch (error) {
+      logger.error('Error getting session list:', error);
+      this.postErrorToWebview('Failed to get session list', 'getSessionList');
+    }
+  }
+
+  // Helper to switch internal state and load data
+  private async switchToSessionState(sessionId: string): Promise<void> {
+    logger.info(`[PanelManager] Switching internal state to session: ${sessionId}`);
+    const sessionState = this.sessionManager.getSession(sessionId);
+    if (sessionState) {
+      this.currentSessionId = sessionId;
+      this.currentAssistants = sessionState.activeAssistantIds;
+      // Post history to webview
+      PanelManager.currentPanel?.webview.postMessage({
+        command: 'loadChatHistory',
+        payload: { messages: sessionState.messages },
+      });
+      logger.info(
+        `Switched to session ${sessionId}. Loaded ${sessionState.messages.length} messages.`,
+      );
+    } else {
+      logger.error(`Cannot switch to session ${sessionId}: Not found.`);
+      // Don't switch if session doesn't exist
+      this.postErrorToWebview(`Session ${sessionId} not found. Cannot switch.`, 'switchToSession');
+      // Optionally load session list again to refresh UI?
+      await this.handleGetSessionList();
+    }
+  }
+
+  private async handleSwitchToSession(payload: unknown): Promise<void> {
+    logger.info('[PanelManager] Handling switchToSession command...');
+    let sessionId: string | undefined;
+    if (typeof payload === 'object' && payload !== null) {
+      sessionId =
+        typeof (payload as { sessionId?: unknown }).sessionId === 'string'
+          ? (payload as { sessionId: string }).sessionId
+          : undefined;
+    }
+    if (!sessionId) {
+      this.postErrorToWebview('No session ID provided for switching.', 'switchToSession');
+      return;
+    }
+    await this.switchToSessionState(sessionId);
+    // Send updated list with new active session ID
+    await this.handleGetSessionList();
+  }
+
+  private async handleDeleteSession(payload: unknown): Promise<void> {
+    logger.info('[PanelManager] Handling deleteSession command...');
+    let sessionId: string | undefined;
+    if (typeof payload === 'object' && payload !== null) {
+      sessionId =
+        typeof (payload as { sessionId?: unknown }).sessionId === 'string'
+          ? (payload as { sessionId: string }).sessionId
+          : undefined;
+    }
+    if (!sessionId) {
+      this.postErrorToWebview('No session ID provided for deletion.', 'deleteSession');
+      return;
+    }
+
+    try {
+      const deleted = await this.sessionManager.deleteSession(sessionId);
+      if (deleted) {
+        logger.info(`Session ${sessionId} deleted.`);
+        // If the deleted session was the active one, switch to another or create new?
+        if (this.currentSessionId === sessionId) {
+          this.currentSessionId = null; // Clear active session
+          const sessions = this.sessionManager.getAllSessions();
+          if (sessions.length > 0) {
+            // Switch to the most recent remaining session
+            await this.switchToSessionState(
+              sessions.sort(
+                (a: SessionState, b: SessionState) => b.lastUpdatedAt - a.lastUpdatedAt,
+              )[0].sessionId,
+            );
+          } else {
+            // Create a new one if none are left
+            const newSession = this.sessionManager.createSession();
+            await this.switchToSessionState(newSession.sessionId);
+          }
+        } else {
+          // Just refresh the list if a non-active session was deleted
+          await this.handleGetSessionList();
+        }
+      } else {
+        logger.warn(`Session ${sessionId} not found for deletion.`);
+        this.postErrorToWebview(`Session ${sessionId} not found for deletion.`, 'deleteSession');
+      }
+    } catch (error) {
+      logger.error(`Error deleting session ${sessionId}:`, error);
+      this.postErrorToWebview('Failed to delete session', 'deleteSession');
+    }
+  }
+
+  // --- Scheduled Action Execution ---
   /**
    * Executes a scheduled action for a given session.
    * This is intended to be called by the background timer/scheduler.
@@ -1126,120 +1214,140 @@ export class PanelManager {
    * @param action The ScheduledAction object to execute.
    */
   public async executeScheduledAction(sessionId: string, action: ScheduledAction): Promise<void> {
-      logger.info(`[PanelManager] Executing scheduled action ${action.id} for session ${sessionId}`);
-      
-      // Ensure the action is still marked as executing (prevent race conditions?)
-      const sessionState = this.sessionManager.getSession(sessionId);
-      const actionInState = sessionState?.scheduledActions?.find((a: ScheduledAction) => a.id === action.id);
+    logger.info(`[PanelManager] Executing scheduled action ${action.id} for session ${sessionId}`);
 
-      if (!sessionState || !actionInState || actionInState.status !== 'executing') {
-          logger.warn(`[PanelManager] Action ${action.id} in session ${sessionId} is not in executing state or session not found. Skipping.`);
-          // Optionally update status back to pending or failed?
-          if (sessionState && actionInState) {
-             await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'failed');
-          }
-          return;
+    // Ensure the action is still marked as executing (prevent race conditions?)
+    const sessionState = this.sessionManager.getSession(sessionId);
+    const actionInState = sessionState?.scheduledActions?.find(
+      (a: ScheduledAction) => a.id === action.id,
+    );
+
+    if (!sessionState || !actionInState || actionInState.status !== 'executing') {
+      logger.warn(
+        `[PanelManager] Action ${action.id} in session ${sessionId} is not in executing state or session not found. Skipping.`,
+      );
+      // Optionally update status back to pending or failed?
+      if (sessionState && actionInState) {
+        await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'failed');
       }
+      return;
+    }
 
-      let success = false;
-      try {
-          // --- Action Execution Logic --- 
-          switch (action.actionType) {
-              case 'sendMessage': { // Example: Send a message as the target assistant
-                  const messageText = action.actionPayload?.text as string;
-                  const targetProfile = getAssistantProfileById(action.targetAssistantId);
-                  if (!messageText) throw new Error('Missing text in sendMessage actionPayload');
-                  if (!targetProfile) throw new Error(`Target assistant profile ${action.targetAssistantId} not found.`);
-                  
-                  logger.info(` -> Action Type: sendMessage, Target: ${targetProfile.name}, Text: "${messageText}"`);
-                  // Construct the message and add to state
-                  const assistantMessage: Message = {
-                      id: uuidv4(),
-                      role: 'assistant', 
-                      // TODO: Figure out how to attribute this message to the targetAssistantId
-                      // Maybe add assistantId to the Message interface?
-                      content: messageText,
-                      // Optionally include model info from targetProfile?
-                  };
-                  sessionState.messages.push(assistantMessage);
-                  // Notify webview to display the new message
-                  PanelManager.currentPanel?.webview.postMessage({
-                      command: 'aiResponseChunk', // Reuse chunk command for simplicity?
-                      payload: { streamId: `scheduled_${action.id}`, textChunk: messageText }
-                  });
-                  PanelManager.currentPanel?.webview.postMessage({ 
-                      command: 'aiResponseComplete', 
-                      payload: { streamId: `scheduled_${action.id}` } 
-                  }); 
-                  success = true;
-                  break;
-              }
+    try {
+      // --- Action Execution Logic ---
+      switch (action.actionType) {
+        case 'sendMessage': {
+          // Example: Send a message as the target assistant
+          const messageText = action.actionPayload?.text as string;
+          const targetProfile = getAssistantProfileById(action.targetAssistantId);
+          if (!messageText) throw new Error('Missing text in sendMessage actionPayload');
+          if (!targetProfile)
+            throw new Error(`Target assistant profile ${action.targetAssistantId} not found.`);
 
-              case 'callTool': { // Example: Call a tool as the target assistant
-                  const toolName = action.actionPayload?.toolName as string;
-                  const toolArgs = action.actionPayload?.args as any;
-                  const targetProfile = getAssistantProfileById(action.targetAssistantId);
-                  if (!toolName || !toolArgs) throw new Error('Missing toolName or args in callTool actionPayload');
-                   if (!targetProfile) throw new Error(`Target assistant profile ${action.targetAssistantId} not found.`);
-
-                  logger.info(` -> Action Type: callTool, Target: ${targetProfile.name}, Tool: ${toolName}, Args: ${JSON.stringify(toolArgs)}`);
-
-                  // Check if tool is allowed for the profile
-                  if (!targetProfile.allowedTools.includes(toolName)) {
-                     throw new Error(`Tool '${toolName}' is not allowed for assistant profile '${targetProfile.name}'.`);
-                  }
-
-                  const tools = createAllTools(PanelManager.currentPanel);
-                  const toolToCall = tools[toolName];
-                  if (!toolToCall || typeof toolToCall.execute !== 'function') {
-                      throw new Error(`Tool '${toolName}' not found or does not have an executable function.`);
-                  }
-
-                  // ** Create ToolContext **
-                  const toolContext: ToolContext = {
-                      sessionId: sessionId,
-                      assistantId: action.targetAssistantId
-                  };
-
-                  // Execute the tool, passing context
-                  const toolResult = await toolToCall.execute(toolArgs, toolContext);
-                  logger.info(` -> Tool ${toolName} executed. Result: ${JSON.stringify(toolResult)}`);
-
-                  // Add tool result message to state
-                  sessionState.messages.push({
-                      id: uuidv4(),
-                      role: 'tool',
-                      toolResults: [{ toolName: toolName, result: toolResult }],
-                      content: '',
-                  });
-                   // Notify webview?
-                  success = true;
-                  break;
-              }
-
-              default:
-                  logger.warn(`[PanelManager] Unknown scheduled action type: ${action.actionType}`);
-                  throw new Error(`Unknown scheduled action type: ${action.actionType}`);
-          }
-          // ---------------------------
-
-          // Update status to completed on success
-          await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'completed');
-
-      } catch (error) {
-          logger.error(`[PanelManager] Error executing scheduled action ${action.id}:`, error);
-          // Update status to failed
-          await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'failed');
-          // Optionally add an error message to the chat?
-          sessionState.messages.push({
-              id: uuidv4(),
-              role: 'system', // Or 'assistant'?
-              content: `[Error executing scheduled action ${action.id}: ${error instanceof Error ? error.message : String(error)}]`
+          logger.info(
+            ` -> Action Type: sendMessage, Target: ${targetProfile.name}, Text: "${messageText}"`,
+          );
+          // Construct the message and add to state
+          const assistantMessage: Message = {
+            id: uuidv4(),
+            role: 'assistant',
+            // TODO: Figure out how to attribute this message to the targetAssistantId
+            // Maybe add assistantId to the Message interface?
+            content: messageText,
+            // Optionally include model info from targetProfile?
+          };
+          sessionState.messages.push(assistantMessage);
+          // Notify webview to display the new message
+          PanelManager.currentPanel?.webview.postMessage({
+            command: 'aiResponseChunk', // Reuse chunk command for simplicity?
+            payload: { streamId: `scheduled_${action.id}`, textChunk: messageText },
           });
-          // Notify webview of the error message?
+          PanelManager.currentPanel?.webview.postMessage({
+            command: 'aiResponseComplete',
+            payload: { streamId: `scheduled_${action.id}` },
+          });
+          // No need to track success since we handle errors individually
+          break;
+        }
+
+        case 'callTool': {
+          // Example: Call a tool as the target assistant
+          const toolName = action.actionPayload?.toolName as string;
+          const toolArguments = action.actionPayload?.args as Record<string, unknown>;
+          const targetProfile = getAssistantProfileById(action.targetAssistantId);
+          if (!toolName || !toolArguments)
+            throw new Error('Missing toolName or args in callTool actionPayload');
+          if (!targetProfile)
+            throw new Error(`Target assistant profile ${action.targetAssistantId} not found.`);
+
+          logger.info(
+            ` -> Action Type: callTool, Target: ${targetProfile.name}, Tool: ${toolName}, Args: ${JSON.stringify(toolArguments)}`,
+          );
+
+          // Check if tool is allowed for the profile
+          if (!targetProfile.allowedTools.includes(toolName)) {
+            throw new Error(
+              `Tool '${toolName}' is not allowed for assistant profile '${targetProfile.name}'.`,
+            );
+          }
+
+          const tools = createAllTools(PanelManager.currentPanel);
+          const toolToCall = tools[toolName];
+          if (!toolToCall || typeof toolToCall.execute !== 'function') {
+            throw new Error(
+              `Tool '${toolName}' not found or does not have an executable function.`,
+            );
+          }
+
+          // ** Create ToolContext **
+          const toolContext: ToolContext = {
+            sessionId: sessionId,
+            assistantId: action.targetAssistantId,
+          };
+
+          // Execute the tool, passing context
+          // Use type assertion as a temporary workaround for complex type inference issues
+          const toolResult = await (toolToCall.execute as (
+            args: Record<string, unknown>,
+            context: ToolContext
+          ) => Promise<unknown>)(toolArguments, toolContext);
+          logger.info(` -> Tool ${toolName} executed. Result: ${JSON.stringify(toolResult)}`);
+
+          // Add tool result message to state
+          sessionState.messages.push({
+            id: uuidv4(),
+            role: 'tool',
+            toolResults: [{ toolName: toolName, result: toolResult }],
+            content: '',
+          });
+          // Notify webview of successful tool execution
+          this.notifyToolResult(PanelManager.currentPanel!, toolName, toolResult);
+          break;
+        }
+
+        default: {
+          logger.warn(`[PanelManager] Unknown scheduled action type: ${action.actionType}`);
+          throw new Error(`Unknown scheduled action type: ${action.actionType}`);
+        }
       }
-      // Save session state again after execution (success or fail) and status update
-      await this.sessionManager.saveSession(sessionId);
+      // ---------------------------
+
+      // Update status to completed on success
+      await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'completed');
+    } catch (error) {
+      logger.error(`[PanelManager] Error executing scheduled action ${action.id}:`, error);
+      // Update status to failed
+      await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'failed');
+      // Optionally add an error message to the chat?
+      sessionState.messages.push({
+        id: uuidv4(),
+        role: 'system', // Or 'assistant'?
+        content: `[Error executing scheduled action ${action.id}: ${error instanceof Error ? error.message : String(error)}]`,
+      });
+      // Notify webview of the error message?
+    }
+    // Save session state again after execution (success or fail) and status update
+    await this.sessionManager.saveSession(sessionId);
   }
-  // --- End Scheduled Action Execution --- 
+  // --- End Scheduled Action Execution ---
 }

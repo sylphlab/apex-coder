@@ -1,6 +1,6 @@
-import * as vscode from "vscode";
-import { PanelManager } from "./webview/panelManager";
-import { logger } from "./utils/logger";
+import * as vscode from 'vscode';
+import { PanelManager } from './webview/panelManager.js';
+import { logger } from './utils/logger.js';
 import {
   COMMAND_SET_API_KEY,
   COMMAND_SHOW_PANEL,
@@ -8,12 +8,12 @@ import {
   // SUPPORTED_MODELS, // Commenting out due to persistent export/resolution issues
   CONFIG_PROVIDER,
   CONFIG_MODEL_ID,
-} from "./utils/constants";
-import { getAllProviders } from "./ai-sdk/providerService";
-import type { ProviderDetails } from "./ai-sdk/providerService";
-import { initializeAiSdkModel } from "./ai-sdk/configLoader.js";
-import { SessionManager } from "./core/sessionManager";
-import type { SessionState, ScheduledAction } from "./types/sessionState";
+} from './utils/constants.js';
+import { getAllProviders } from './ai-sdk/providerService.js';
+import type { ProviderDetails } from './ai-sdk/providerService.js';
+import { initializeAiSdkModel } from './ai-sdk/configLoader.js';
+import { SessionManager } from './core/sessionManager.js';
+import type { ScheduledAction } from './types/sessionState.js';
 
 let panelManager: PanelManager | undefined;
 let sessionManager: SessionManager | undefined;
@@ -26,23 +26,15 @@ let sessionManager: SessionManager | undefined;
  * @param context The extension context.
  * @returns The workspace root path or undefined if not found.
  */
-async function getWorkspaceRootPath(
-  context: vscode.ExtensionContext,
-): Promise<string | undefined> {
+async function getWorkspaceRootPath(context: vscode.ExtensionContext): Promise<string | undefined> {
   const workspaceRootPath: string | undefined = context.extensionPath;
   if (workspaceRootPath) {
-    logger.info(
-      `Using workspace root from context.extensionPath: ${workspaceRootPath}`,
-    );
+    logger.info(`Using workspace root from context.extensionPath: ${workspaceRootPath}`);
     return workspaceRootPath;
   } else {
-    logger.error(
-      "context.extensionPath is undefined. Cannot determine workspace root.",
-    );
+    logger.error('context.extensionPath is undefined. Cannot determine workspace root.');
     // Await this call now
-    await vscode.window.showErrorMessage(
-      "Apex Coder could not determine its installation path.",
-    );
+    await vscode.window.showErrorMessage('Apex Coder could not determine its installation path.');
     return undefined;
   }
 }
@@ -52,21 +44,19 @@ async function getWorkspaceRootPath(
  * Shows a warning message with an option to set the key if it's missing.
  * @param context The extension context.
  */
-async function checkApiKeyOnActivation(
-  context: vscode.ExtensionContext,
-): Promise<void> {
+async function checkApiKeyOnActivation(context: vscode.ExtensionContext): Promise<void> {
   try {
-    const config = vscode.workspace.getConfiguration("apexCoder.ai");
+    const config = vscode.workspace.getConfiguration('apexCoder.ai');
     // Replace non-null assertion with check or default value
-    const providerConfigKey = CONFIG_PROVIDER.split(".").pop();
+    const providerConfigKey = CONFIG_PROVIDER.split('.').pop();
     if (!providerConfigKey) {
-      logger.error("Internal Error: Could not derive provider config key.");
+      logger.error('Internal Error: Could not derive provider config key.');
       return;
     }
-    const providerId = config.get<string>(providerConfigKey) ?? "";
+    const providerId = config.get<string>(providerConfigKey) ?? '';
 
     if (!providerId) {
-      logger.info("No provider configured yet.");
+      logger.info('No provider configured yet.');
       return;
     }
 
@@ -75,9 +65,7 @@ async function checkApiKeyOnActivation(
     const providerInfo = allProviders.find((p) => p.id === providerId);
 
     if (!providerInfo) {
-      logger.warn(
-        `Configured provider '${providerId}' not found in supported providers list.`,
-      );
+      logger.warn(`Configured provider '${providerId}' not found in supported providers list.`);
       return;
     }
 
@@ -92,14 +80,16 @@ async function checkApiKeyOnActivation(
     logger.info(`Attempting to read secret key: ${secretKey}`);
     const apiKey = await context.secrets.get(secretKey);
     logger.info(
-      `Value read for secret key ${secretKey}: ${apiKey ? "****** (found)" : "undefined (not found)"}`,
+      `Value read for secret key ${secretKey}: ${apiKey ? '****** (found)' : 'undefined (not found)'}`,
     );
 
-    if (!apiKey) {
+    if (apiKey) {
+      logger.info(`API Key found for provider '${providerInfo.name}'.`);
+    } else {
       logger.warn(
         `API Key for provider '${providerInfo.name}' not found in secrets. Prompting user.`,
       );
-      const setupAction = "Set API Key";
+      const setupAction = 'Set API Key';
       const selection = await vscode.window.showWarningMessage(
         `API Key for the configured provider '${providerInfo.name}' is missing.`,
         setupAction,
@@ -108,12 +98,10 @@ async function checkApiKeyOnActivation(
         // Await command execution if user clicks the button
         await vscode.commands.executeCommand(COMMAND_SET_API_KEY);
       }
-    } else {
-      logger.info(`API Key found for provider '${providerInfo.name}'.`);
     }
   } catch (error) {
     // Catch specific error types if possible, otherwise use unknown
-    logger.error("Error checking API key on activation:", error);
+    logger.error('Error checking API key on activation:', error);
   }
 }
 
@@ -122,39 +110,36 @@ async function checkApiKeyOnActivation(
  * @param provider The selected provider information.
  * @returns The entered API key or undefined if cancelled.
  */
-async function promptForApiKey(
-  provider: ProviderDetails,
-): Promise<string | undefined> {
+async function promptForApiKey(provider: ProviderDetails): Promise<string | undefined> {
   const apiKey = await vscode.window.showInputBox({
     prompt: `Enter API Key for ${provider.name}`,
     password: true,
     ignoreFocusOut: true,
     validateInput: (value: string): string | null => {
       if (!value) {
-        return "API Key is required";
+        return 'API Key is required';
       }
       // Use const for provider ID
       const providerIdLower = provider.id.toLowerCase();
       switch (providerIdLower) {
-        case "openai":
-          if (!value.startsWith("sk-"))
-            return 'OpenAI keys typically start with "sk-"';
+        case 'openai': {
+          if (!value.startsWith('sk-')) return 'OpenAI keys typically start with "sk-"';
           break;
-        case "anthropic":
-          if (!value.startsWith("sk-ant-"))
-            return 'Anthropic keys typically start with "sk-ant-"';
+        }
+        case 'anthropic': {
+          if (!value.startsWith('sk-ant-')) return 'Anthropic keys typically start with "sk-ant-"';
           break;
-        case "googleai":
-          if (value.length < 30)
-            return "Google AI keys are typically longer than 30 characters";
+        }
+        case 'googleai': {
+          if (value.length < 30) return 'Google AI keys are typically longer than 30 characters';
           break;
+        }
       }
       return null;
     },
   });
 
   if (!apiKey) {
-    // eslint-disable-next-line @typescript-eslint/await-thenable
     await vscode.window.showWarningMessage(
       `API Key setup cancelled: API Key for ${provider.name} not entered.`,
     );
@@ -168,20 +153,17 @@ async function promptForApiKey(
  * @param providerId The selected provider ID.
  * @param modelId The selected model ID (optional).
  */
-async function updateConfiguration(
-  providerId: string,
-  modelId?: string,
-): Promise<void> {
-  const config = vscode.workspace.getConfiguration("apexCoder.ai");
+async function updateConfiguration(providerId: string, modelId?: string): Promise<void> {
+  const config = vscode.workspace.getConfiguration('apexCoder.ai');
   const updates: Promise<void>[] = [];
 
   // Simplify getting config keys and handle potential undefined
-  const providerConfigKey = CONFIG_PROVIDER.split(".").pop();
-  const modelConfigKey = CONFIG_MODEL_ID.split(".").pop();
+  const providerConfigKey = CONFIG_PROVIDER.split('.').pop();
+  const modelConfigKey = CONFIG_MODEL_ID.split('.').pop();
   // const baseConfigKey = CONFIG_BASE_URL.split(".").pop(); // Assuming unused for now
 
   if (!providerConfigKey || !modelConfigKey) {
-    logger.error("Internal Error: Could not derive config keys.");
+    logger.error('Internal Error: Could not derive config keys.');
     return;
   }
 
@@ -201,17 +183,15 @@ async function updateConfiguration(
       config.update(modelConfigKey, modelId, vscode.ConfigurationTarget.Global) as Promise<void>,
     );
     logger.info(`Updated model configuration to: ${modelId}`);
-  } else if (!modelId && providerId.toLowerCase() === "ollama") {
-    if (config.get<string>(modelConfigKey) !== undefined) {
-      updates.push(
-        config.update(
-          modelConfigKey,
-          undefined,
-          vscode.ConfigurationTarget.Global,
-        ) as Promise<void>,
-      );
-      logger.info(`Cleared model configuration for Ollama.`);
-    }
+  } else if (
+    !modelId &&
+    providerId.toLowerCase() === 'ollama' &&
+    config.get<string>(modelConfigKey) !== undefined
+  ) {
+    updates.push(
+      config.update(modelConfigKey, undefined, vscode.ConfigurationTarget.Global) as Promise<void>,
+    );
+    logger.info(`Cleared model configuration for Ollama.`);
   }
 
   await Promise.all(updates);
@@ -248,7 +228,7 @@ async function testProviderConnection(
         return true;
       } catch (error: unknown) {
         // Use unknown for catch
-        logger.error("Connection test failed:", error);
+        logger.error('Connection test failed:', error);
         return false;
       }
     },
@@ -256,9 +236,7 @@ async function testProviderConnection(
 
   if (testResult) {
     // Await this call now
-    await vscode.window.showInformationMessage(
-      `Successfully connected to ${provider.name}!`,
-    );
+    await vscode.window.showInformationMessage(`Successfully connected to ${provider.name}!`);
   } else {
     // Await this call now
     await vscode.window.showWarningMessage(
@@ -273,30 +251,26 @@ async function testProviderConnection(
  * Stores the configuration and secret.
  * @param context The extension context.
  */
-async function handleSetApiKeyCommand(
-  context: vscode.ExtensionContext,
-): Promise<void> {
+async function handleSetApiKeyCommand(context: vscode.ExtensionContext): Promise<void> {
   logger.info(`Command executed: ${COMMAND_SET_API_KEY}`);
   try {
     // 1. Select Provider
     const allProviders = getAllProviders();
     const providerQuickPickItems = allProviders.map((p) => ({
       label: p.name,
-      detail: p.requiresApiKey ? "Requires API key" : "No API key needed",
+      detail: p.requiresApiKey ? 'Requires API key' : 'No API key needed',
       value: p, // Store the whole provider object
     }));
 
     const selectedProviderItem = await vscode.window.showQuickPick<
       vscode.QuickPickItem & { value: ProviderDetails }
     >(providerQuickPickItems, {
-      placeHolder: "Select AI Provider",
+      placeHolder: 'Select AI Provider',
       ignoreFocusOut: true,
     });
 
     if (!selectedProviderItem) {
-      vscode.window.showWarningMessage(
-        "API Key setup cancelled: No provider selected.",
-      );
+      vscode.window.showWarningMessage('API Key setup cancelled: No provider selected.');
       return;
     }
     const selectedProvider = selectedProviderItem.value;
@@ -321,15 +295,13 @@ async function handleSetApiKeyCommand(
     //   modelValue = modelSelection.value;
     // }
     // Temporary: Ask for model ID manually if not Ollama, as SUPPORTED_MODELS is unavailable
-    if (providerIdLower !== "ollama") {
+    if (providerIdLower !== 'ollama') {
       modelValue = await vscode.window.showInputBox({
         prompt: `Enter Model ID for ${selectedProvider.name} (e.g., gpt-4o, gemini-1.5-flash)`,
         ignoreFocusOut: true,
       });
       if (!modelValue) {
-        void vscode.window.showWarningMessage(
-          "Model ID input cancelled or empty.",
-        );
+        void vscode.window.showWarningMessage('Model ID input cancelled or empty.');
         return;
       }
       logger.info(`Using manually entered model ID: ${modelValue}`);
@@ -344,20 +316,16 @@ async function handleSetApiKeyCommand(
       }
       const secretKey = `${SECRET_API_KEY_PREFIX}${providerIdLower}`;
       await context.secrets.store(secretKey, apiKey);
-      // eslint-disable-next-line @typescript-eslint/await-thenable
+
       await vscode.window.showInformationMessage(
         `API Key for ${selectedProvider.name} stored successfully.`,
       );
       logger.info(`API Key stored for provider: ${selectedProvider.id}`);
     } else {
-      logger.info(
-        `Provider '${selectedProvider.name}' does not require an API key.`,
-      );
+      logger.info(`Provider '${selectedProvider.name}' does not require an API key.`);
       const secretKey = `${SECRET_API_KEY_PREFIX}${providerIdLower}`;
       await context.secrets.delete(secretKey);
-      logger.info(
-        `Removed any existing secret for keyless provider: ${selectedProvider.id}`,
-      );
+      logger.info(`Removed any existing secret for keyless provider: ${selectedProvider.id}`);
     }
 
     // 4. Update Configuration
@@ -371,10 +339,10 @@ async function handleSetApiKeyCommand(
     // Show panel at the end - call directly, no await/void needed?
     panelManager?.showPanel();
   } catch (error: unknown) {
-    const errorMsg = `Failed to set API Key: ${error instanceof Error ? error.message : String(error)}`;
-    logger.error("Error setting API key:", error);
+    const errorMessage = `Failed to set API Key: ${error instanceof Error ? error.message : String(error)}`;
+    logger.error('Error setting API key:', error);
     // Await this call now
-    await vscode.window.showErrorMessage(errorMsg);
+    await vscode.window.showErrorMessage(errorMessage);
   }
 }
 
@@ -384,20 +352,20 @@ async function handleSetApiKeyCommand(
  * Activates the Apex Coder extension.
  * @param context The extension context.
  */
-export async function activate(
-  context: vscode.ExtensionContext,
-): Promise<void> {
-  logger.info("Activating Apex Coder extension...");
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  logger.info('Activating Apex Coder extension...');
 
   // Initialize Session Manager FIRST
   sessionManager = new SessionManager(context);
   try {
     await sessionManager.initialize();
-    logger.info("Session Manager initialized successfully.");
+    logger.info('Session Manager initialized successfully.');
   } catch (error) {
-    logger.error("Failed to initialize Session Manager:", error);
+    logger.error('Failed to initialize Session Manager:', error);
     // Show error to user, potentially block further activation?
-    vscode.window.showErrorMessage(`Apex Coder failed to initialize session storage. Chat history might be unavailable. Error: ${error}`);
+    vscode.window.showErrorMessage(
+      `Apex Coder failed to initialize session storage. Chat history might be unavailable. Error: ${error}`,
+    );
     // Depending on severity, might return here
   }
 
@@ -420,49 +388,55 @@ export async function activate(
   const schedulingIntervalMs = 60 * 1000; // Check every minute
   logger.info(`Starting scheduled action checker. Interval: ${schedulingIntervalMs}ms`);
   const timerId = setInterval(async () => {
-      if (sessionManager && panelManager) {
-          logger.info("[Background Timer] Checking scheduled actions...");
-          try {
-              const now = Date.now();
-              const allSessions = sessionManager.getAllSessions();
-              for (const session of allSessions) {
-                  if (session.scheduledActions && session.scheduledActions.length > 0) {
-                      let sessionModified = false;
-                      const actionsToExecuteNow: ScheduledAction[] = [];
-                      
-                      // Find pending actions that are due
-                      for (const action of session.scheduledActions) {
-                          if (action.status === 'pending' && action.triggerTime <= now) {
-                              logger.info(`[Background Timer] Found due action ${action.id} in session ${session.sessionId}`);
-                              action.status = 'executing'; // Mark executing immediately
-                              actionsToExecuteNow.push(action);
-                              sessionModified = true;
-                          }
-                      }
-                      
-                      // Save session if status changed
-                      if (sessionModified) {
-                          await sessionManager.saveSession(session.sessionId);
-                      }
-                      
-                      // Execute the found actions
-                      for (const action of actionsToExecuteNow) {
-                           logger.info(`[Background Timer] Attempting execution: ${action.id}`);
-                           // Call PanelManager to execute the action
-                           await panelManager.executeScheduledAction(session.sessionId, action);
-                           // Status update (completed/failed) should happen within executeScheduledAction
-                      }
-                  }
+    if (sessionManager && panelManager) {
+      logger.info('[Background Timer] Checking scheduled actions...');
+      try {
+        const now = Date.now();
+        const allSessions = sessionManager.getAllSessions();
+        for (const session of allSessions) {
+          if (session.scheduledActions && session.scheduledActions.length > 0) {
+            let sessionModified = false;
+            const actionsToExecuteNow: ScheduledAction[] = [];
+
+            // Find pending actions that are due
+            for (const action of session.scheduledActions) {
+              if (action.status === 'pending' && action.triggerTime <= now) {
+                logger.info(
+                  `[Background Timer] Found due action ${action.id} in session ${session.sessionId}`,
+                );
+                action.status = 'executing'; // Mark executing immediately
+                actionsToExecuteNow.push(action);
+                sessionModified = true;
               }
-          } catch(err: unknown) { 
-              logger.error("[Background Timer] Error during scheduled action check/trigger:", err);
+            }
+
+            // Save session if status changed
+            if (sessionModified) {
+              await sessionManager.saveSession(session.sessionId);
+            }
+
+            // Execute the found actions
+            for (const action of actionsToExecuteNow) {
+              logger.info(`[Background Timer] Attempting execution: ${action.id}`);
+              // Call PanelManager to execute the action
+              await panelManager.executeScheduledAction(session.sessionId, action);
+              // Status update (completed/failed) should happen within executeScheduledAction
+            }
           }
-      } else {
-           logger.warn("[Background Timer] SessionManager or PanelManager not available.");
+        }
+      } catch (error: unknown) {
+        logger.error('[Background Timer] Error during scheduled action check/trigger:', error);
       }
+    } else {
+      logger.warn('[Background Timer] SessionManager or PanelManager not available.');
+    }
   }, schedulingIntervalMs);
   // Ensure timer is cleared on deactivation
-  context.subscriptions.push({ dispose: () => clearInterval(timerId) });
+  context.subscriptions.push({
+    dispose: () => {
+      clearInterval(timerId);
+    },
+  });
 
   // Register commands
   context.subscriptions.push(
@@ -477,20 +451,20 @@ export async function activate(
         void handleSetApiKeyCommand(context), // Defined above
     ),
   );
-  logger.info("Apex Coder commands registered.");
+  logger.info('Apex Coder commands registered.');
 
   // Automatically show panel on startup
   // Use void to explicitly ignore the promise
   void panelManager.showPanel();
-  logger.info("Automatically triggered showPanel on startup.");
+  logger.info('Automatically triggered showPanel on startup.');
 
-  logger.info("Apex Coder activation finished.");
+  logger.info('Apex Coder activation finished.');
 }
 
 /**
  * Deactivates the extension.
  */
 export function deactivate(): void {
-  logger.info("Deactivating Apex Coder...");
+  logger.info('Deactivating Apex Coder...');
   panelManager = undefined;
 }

@@ -1,7 +1,7 @@
-import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
-import { logger } from "../utils/logger";
+import * as vscode from 'vscode';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { logger } from '../utils/logger';
 
 // --- Development Flag & Settings ---
 // Default port if .vite.port file is not found or invalid
@@ -13,10 +13,9 @@ const DEFAULT_DEV_PORT = 5173;
  * @returns A random nonce string.
  */
 function getNonce(): string {
-  let text = "";
-  const possible =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < 32; i++) {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let index = 0; index < 32; index++) {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
   return text;
@@ -41,29 +40,25 @@ export function getWebviewContent(
   const isDevelopment = extensionMode === vscode.ExtensionMode.Development;
 
   if (isDevelopment) {
-    logger.info(
-      "Generating webview content for DEVELOPMENT (Vite dev server).",
-    );
+    logger.info('Generating webview content for DEVELOPMENT (Vite dev server).');
 
-    let devPort = DEFAULT_DEV_PORT;
-    let portFilePath = "";
+    let developmentPort = DEFAULT_DEV_PORT;
+    let portFilePath = '';
 
     // Use the workspace root path passed from PanelManager
     if (workspaceRootPath) {
-      portFilePath = path.join(workspaceRootPath, ".vite.port");
-      logger.info(
-        `Using workspace root path provided by PanelManager: ${workspaceRootPath}`,
-      );
+      portFilePath = path.join(workspaceRootPath, '.vite.port');
+      logger.info(`Using workspace root path provided by PanelManager: ${workspaceRootPath}`);
       logger.info(`Looking for .vite.port file at: ${portFilePath}`);
 
       try {
         if (fs.existsSync(portFilePath)) {
-          const portFileContent = fs.readFileSync(portFilePath, "utf8").trim();
-          const parsedPort = parseInt(portFileContent, 10);
-          if (!isNaN(parsedPort) && parsedPort > 0 && parsedPort < 65536) {
-            devPort = parsedPort;
+          const portFileContent = fs.readFileSync(portFilePath, 'utf8').trim();
+          const parsedPort = Number.parseInt(portFileContent, 10);
+          if (!isNaN(parsedPort) && parsedPort > 0 && parsedPort < 65_536) {
+            developmentPort = parsedPort;
             logger.info(
-              `Successfully read Vite dev server port ${devPort} from ${portFilePath}`,
+              `Successfully read Vite dev server port ${developmentPort} from ${portFilePath}`,
             );
           } else {
             logger.warn(
@@ -83,33 +78,33 @@ export function getWebviewContent(
     } else {
       // This case should ideally not happen if activation logic is correct, but good to handle.
       logger.error(
-        "Workspace root path was not provided to getWebviewContent. Cannot locate .vite.port. Falling back to default port.",
+        'Workspace root path was not provided to getWebviewContent. Cannot locate .vite.port. Falling back to default port.',
       );
     }
 
-    const devServerBaseUrl = `http://127.0.0.1:${devPort}`;
-    const devServerHttpUri = devServerBaseUrl;
+    const developmentServerBaseUrl = `http://127.0.0.1:${developmentPort}`;
+    const developmentServerHttpUri = developmentServerBaseUrl;
     // const devServerWsUri = devServerBaseUrl.replace(/^http/, "ws"); // Unused variable
 
     // In development, we need to allow connections to the Vite dev server
     // Note: Looser CSP for development convenience.
     const csp = `
             default-src 'none';
-            connect-src 'self' ${webview.cspSource} http://127.0.0.1:${String(devPort)} ws://127.0.0.1:${String(devPort)} http://localhost:* ws://localhost:*;
-            img-src 'self' ${webview.cspSource} http://127.0.0.1:${String(devPort)} http://localhost:* data:;
-            script-src 'self' ${webview.cspSource} http://127.0.0.1:${String(devPort)} http://localhost:* 'unsafe-inline' 'unsafe-eval';
-            style-src 'self' ${webview.cspSource} http://127.0.0.1:${String(devPort)} http://localhost:* 'unsafe-inline';
-            font-src 'self' ${webview.cspSource} http://127.0.0.1:${String(devPort)} http://localhost:*;
+            connect-src 'self' ${webview.cspSource} http://127.0.0.1:${String(developmentPort)} ws://127.0.0.1:${String(developmentPort)} http://localhost:* ws://localhost:*;
+            img-src 'self' ${webview.cspSource} http://127.0.0.1:${String(developmentPort)} http://localhost:* data:;
+            script-src 'self' ${webview.cspSource} http://127.0.0.1:${String(developmentPort)} http://localhost:* 'unsafe-inline' 'unsafe-eval';
+            style-src 'self' ${webview.cspSource} http://127.0.0.1:${String(developmentPort)} http://localhost:* 'unsafe-inline';
+            font-src 'self' ${webview.cspSource} http://127.0.0.1:${String(developmentPort)} http://localhost:*;
         `
-      .replace(/\s{2,}/g, " ")
+      .replaceAll(/\s{2,}/g, ' ')
       .trim();
 
     // Note: Nonce is still generated but not used in script-src for dev mode currently
-    return `<!DOCTYPE html>\n        <html lang="en">\n        <head>\n            <meta charset="UTF-8">\n            <meta http-equiv="Content-Security-Policy" content="${csp}">\n            <meta name="viewport" content="width=device-width, initial-scale=1.0">\n            <title>Apex Coder (Dev)</title>\n            <script type="module" nonce="${nonce}" src="${devServerHttpUri}/@vite/client"></script>\n            <script type="module" nonce="${nonce}" src="${devServerHttpUri}/src/main.ts"></script>\n        </head>\n        <body>\n            <div id="app"></div>\n        </body>\n        </html>`;
+    return `<!DOCTYPE html>\n        <html lang="en">\n        <head>\n            <meta charset="UTF-8">\n            <meta http-equiv="Content-Security-Policy" content="${csp}">\n            <meta name="viewport" content="width=device-width, initial-scale=1.0">\n            <title>Apex Coder (Dev)</title>\n            <script type="module" nonce="${nonce}" src="${developmentServerHttpUri}/@vite/client"></script>\n            <script type="module" nonce="${nonce}" src="${developmentServerHttpUri}/src/main.ts"></script>\n        </head>\n        <body>\n            <div id="app"></div>\n        </body>\n        </html>`;
   } else {
-    logger.info("Generating webview content for PRODUCTION (dist build)...");
-    const buildPath = vscode.Uri.joinPath(extensionUri, "webview-ui", "dist");
-    const indexPath = vscode.Uri.joinPath(buildPath, "index.html");
+    logger.info('Generating webview content for PRODUCTION (dist build)...');
+    const buildPath = vscode.Uri.joinPath(extensionUri, 'webview-ui', 'dist');
+    const indexPath = vscode.Uri.joinPath(buildPath, 'index.html');
 
     if (!fs.existsSync(indexPath.fsPath)) {
       logger.error(
@@ -118,17 +113,15 @@ export function getWebviewContent(
       return `<!DOCTYPE html><html><body><h1>Error</h1><p>Webview UI not built. Please run 'pnpm --filter webview-ui build' in the project root.</p></body></html>`;
     }
 
-    let html = fs.readFileSync(indexPath.fsPath, "utf8");
+    let html = fs.readFileSync(indexPath.fsPath, 'utf8');
 
     // Replace asset paths with webview URIs
-    html = html.replace(
-      /(href|src)="(\/assets\/[^"?]+)(\?[^\"]*)?"/g,
+    html = html.replaceAll(
+      /(href|src)="(\/assets\/[^"?]+)(\?[^"]*)?"/g,
       (_match, p1Attribute: string, p2Path: string, p3Query?: string): string => {
-        const assetPath = p2Path.substring(1);
-        const assetUri = webview.asWebviewUri(
-          vscode.Uri.joinPath(buildPath, assetPath),
-        );
-        return `${p1Attribute}="${assetUri.toString(true)}${p3Query ?? ""}"`;
+        const assetPath = p2Path.slice(1);
+        const assetUri = webview.asWebviewUri(vscode.Uri.joinPath(buildPath, assetPath));
+        return `${p1Attribute}="${assetUri.toString(true)}${p3Query ?? ''}"`;
       },
     );
 
@@ -137,17 +130,17 @@ export function getWebviewContent(
     const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; connect-src ${webview.cspSource}; font-src ${webview.cspSource};`;
     // Ensure replacement happens correctly
     html = html.replace(
-      "<head>",
+      '<head>',
       `<head>\n            <meta http-equiv="Content-Security-Policy" content="${csp}">`,
     );
     // Use global flag for script and link replacements
-    html = html.replace(/<script /g, `<script nonce="${nonce}" `);
-    html = html.replace(
-      /<link rel="modulepreload" /g,
+    html = html.replaceAll('<script ', `<script nonce="${nonce}" `);
+    html = html.replaceAll(
+      '<link rel="modulepreload" ',
       `<link rel="modulepreload" nonce="${nonce}" `,
     );
 
-    logger.info("Production webview content generated successfully.");
+    logger.info('Production webview content generated successfully.');
     return html;
   }
 }
