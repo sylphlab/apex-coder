@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'; // Removed watch
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'; // Added watch back
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia'; // Import storeToRefs
 import { useConfigStore } from './stores/configStore'; // Import the store
@@ -200,6 +200,14 @@ onMounted(() => {
   // Request initial config status when component mounts
   // The store handles provider fetching internally on initialization
   getConfigStatus();
+});
+
+// Watch for successful model initialization and navigate to chat
+watch(isModelInitialized, (newValue) => {
+  if (newValue === true) {
+    console.log('Model initialized, navigating to /chat');
+    router.push('/chat');
+  }
 });
 
 onUnmounted(() => {

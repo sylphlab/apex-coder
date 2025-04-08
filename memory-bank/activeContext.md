@@ -1,4 +1,4 @@
-<!-- Version: 1.33 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
+<!-- Version: 1.39 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
@@ -65,8 +65,15 @@
 26. **Completed:** Provider-first architecture implemented.
 27. **Implemented (Frontend):** Migrated WebView UI state management (for configuration) from props/emits to Pinia (`configStore.ts`). Refactored `App.vue`, `SetupView.vue`, and `ChatView.vue` to use the store. This resolves the provider selection issue reported by the user.
 28. **Paused Task:** Fixing errors in `minimal-react-app/src/main.jsx` is paused pending the addition of `.roo/system-prompt-code`.
-29. **Current Task:** Refine secure API key handling.
-    *   **Analysis:** Reviewed `src/extension.ts`. Current logic checks for missing keys on activation but only logs a warning. `setApiKey` command handles setup.
+29. **Completed:** Refined secure API key handling: Added a warning message with a 'Set API Key' action button on activation if a required key is missing (`src/extension.ts`).
+30. **Fix:** Resolved "Unable to write to User Settings" errors by correcting `EXTENSION_ID` constant in `src/utils/constants.ts` and adjusting configuration section access in `src/webview/panelManager.ts`.
+31. **Fix:** Implemented automatic navigation to the Chat view (`/chat`) after successful configuration saving by adding a watcher for `isModelInitialized` state in `webview-ui/src/App.vue`.
+32. **Fix:** Resolved `InvalidCharacterError` in Webview by removing misplaced HTML comments within tag attributes in `webview-ui/src/views/ChatView.vue`.
+33. **Debugging:** Added logging to `onChunk` callback in `src/webview/panelManager.ts` to investigate missing AI response text. Corrected initial logging attempt that caused TS errors.
+34. **Fix:** Corrected build process issue where code changes weren't reflected during debugging. Added `npm: compile` task and made `"Start Full Dev Watch"` depend on it in `.vscode/tasks.json` to ensure a fresh build runs before launching.
+35. **Debugging:** Added logging to `src/extension.ts` and `src/webview/panelManager.ts` to investigate why API keys are not being persisted between sessions.
+36. **Fix:** Corrected configuration reading logic in `src/webview/panelManager.ts` (`sendConfigStatus`, `loadConfiguration`) to use the full `apexCoder.ai` namespace when calling `vscode.workspace.getConfiguration`.
+37. **Current Task:** Diagnose missing AI response text and API key persistence issues using logs. Implement core AI features (tool use, object generation, etc.) using Vercel AI SDK.
     *   **Plan:** Modify activation logic in `src/extension.ts` to show a `showWarningMessage` with an action button to trigger `COMMAND_SET_API_KEY` if a required key is missing.
 
 **Decisions Made:**

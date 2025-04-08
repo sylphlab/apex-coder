@@ -155,11 +155,11 @@ const handleBlur = () => {
           <span class="text-xs mr-2">Status:</span>
           <span
             class="flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
-            :class="isModelInitialized ? 'bg-nordic-success bg-opacity-20 text-nordic-success' : 'bg-nordic-error bg-opacity-20 text-nordic-error'" <!-- Use store state -->
+            :class="isModelInitialized ? 'bg-nordic-success bg-opacity-20 text-nordic-success' : 'bg-nordic-error bg-opacity-20 text-nordic-error'"
           >
             <span
               class="inline-block w-2 h-2 rounded-full mr-1.5"
-              :class="isModelInitialized ? 'bg-nordic-success' : 'bg-nordic-error'" <!-- Use store state -->
+              :class="isModelInitialized ? 'bg-nordic-success' : 'bg-nordic-error'"
             ></span>
             {{ isModelInitialized ? 'Ready' : 'Not Ready' }} <!-- Use store state -->
           </span>
@@ -293,9 +293,9 @@ const handleBlur = () => {
             @keydown="handleKeydown"
             @focus="handleFocus"
             @blur="handleBlur"
-            :disabled="props.isLoading || !isModelInitialized" <!-- Use store state -->
+            :disabled="props.isLoading || !isModelInitialized"
             class="w-full py-2.5 px-3 resize-none min-h-[44px] max-h-[150px] overflow-y-auto text-sm transition-all duration-200 focus:outline-none bg-transparent rounded-lg custom-scrollbar"
-            :class="{ 'opacity-60 cursor-not-allowed': props.isLoading || !isModelInitialized }" <!-- Use store state -->
+            :class="{ 'opacity-60 cursor-not-allowed': props.isLoading || !isModelInitialized }"
           ></textarea>
           
           <!-- Disabled state overlay -->
@@ -314,12 +314,12 @@ const handleBlur = () => {
         <!-- Send button -->
         <button
           @click="handleSend"
-          :disabled="props.isLoading || !props.currentInput.trim() || !isModelInitialized" <!-- Use store state -->
+          :disabled="props.isLoading || !props.currentInput.trim() || !isModelInitialized"
           class="flex items-center justify-center h-10 w-10 rounded-lg transition-all duration-200"
           :class="{
-            'bg-nordic-primary text-white': !(props.isLoading || !props.currentInput.trim() || !isModelInitialized), <!-- Use store state -->
-            'bg-nordic-bg-light text-nordic-text-muted': props.isLoading || !props.currentInput.trim() || !isModelInitialized, <!-- Use store state -->
-            'hover:bg-opacity-90': !(props.isLoading || !props.currentInput.trim() || !isModelInitialized) <!-- Use store state -->
+            'bg-nordic-primary text-white': !(props.isLoading || !props.currentInput.trim() || !isModelInitialized),
+            'bg-nordic-bg-light text-nordic-text-muted': props.isLoading || !props.currentInput.trim() || !isModelInitialized,
+            'hover:bg-opacity-90': !(props.isLoading || !props.currentInput.trim() || !isModelInitialized)
           }"
         >
           <template v-if="props.isLoading">
@@ -339,7 +339,7 @@ const handleBlur = () => {
       <!-- Text counter and hints -->
       <div class="flex justify-between items-center text-xs mt-2 px-2 text-nordic-text-muted">
         <div class="min-h-[1.2em]"> <!-- Add min-height to prevent layout shift -->
-          <span v-if="!isModelInitialized" class="flex items-center"> <!-- Use store state -->
+          <span v-if="!isModelInitialized" class="flex items-center">
             <span class="inline-block w-1.5 h-1.5 rounded-full bg-nordic-error mr-1.5"></span>
             Connect model to send messages
           </span>

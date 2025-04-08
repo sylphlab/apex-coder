@@ -24,7 +24,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		if (provider && provider.toLowerCase() !== 'ollama') {
 			const providerLower = provider.toLowerCase();
 			const secretKey = `${SECRET_API_KEY_PREFIX}${providerLower}`;
+			logger.info(`Attempting to read secret key: ${secretKey}`); // Log key being read
 			const apiKey = await context.secrets.get(secretKey);
+			logger.info(`Value read for secret key ${secretKey}: ${apiKey ? '****** (found)' : 'undefined (not found)'}`); // Log result
 			if (!apiKey) {
 				// Skip warning for deepseek to avoid annoying the user
 				if (providerLower !== 'deepseek') {

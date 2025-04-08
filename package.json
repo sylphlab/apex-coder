@@ -54,13 +54,13 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run package",
-    "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+    "vscode:prepublish": "bun run package",
+    "compile": "bun run check-types && bun run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
-    "watch:vite": "pnpm --filter webview-ui dev",
+    "watch:vite": "bun --filter webview-ui dev",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+    "package": "bun run check-types && bun run lint && node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "test:e2e": "vscode-test",

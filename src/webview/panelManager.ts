@@ -218,7 +218,7 @@ export class PanelManager {
      */
     private async sendConfigStatus(): Promise<void> {
         logger.info('Handling getConfigStatus command...');
-        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE.split('.')[0]); // Get root config section
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE); // Get the 'apexCoder.ai' section
         const provider = config.get<string>(CONFIG_PROVIDER.split('.').pop()!); // Get specific key
         const modelId = config.get<string>(CONFIG_MODEL_ID.split('.').pop()!); // Get specific key
         const secretKey = provider ? `${SECRET_API_KEY_PREFIX}${provider.toLowerCase()}` : undefined;
@@ -265,7 +265,7 @@ export class PanelManager {
         }
 
         try {
-            const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE.split('.')[0]);
+            const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE); // Get the full 'apexCoder.ai' section
             // Update configuration globally
             await config.update(CONFIG_PROVIDER.split('.').pop()!, provider, vscode.ConfigurationTarget.Global);
             await config.update(CONFIG_MODEL_ID.split('.').pop()!, modelId || undefined, vscode.ConfigurationTarget.Global);
@@ -309,8 +309,9 @@ export class PanelManager {
             PanelManager.currentPanel?.webview.postMessage({ command: 'configSaved', payload: finalPayload });
 
         } catch (error: unknown) {
-            const errorMsg = `Failed to save configuration: ${error instanceof Error ? error.message : String(error)}`;
+            // Log the detailed error
             logger.error('Error saving configuration:', error);
+            const errorMsg = `Failed to save configuration. Check logs for details. Error: ${error instanceof Error ? error.message : String(error)}`;
             this.postErrorToWebview(errorMsg, 'saveConfiguration');
             this.isModelInitialized = false; // Reset state on error
             resetAiSdkModel();
@@ -344,51 +345,112 @@ export class PanelManager {
             // Create tools instance, passing the current panel for message posting
             const tools = createAllTools(PanelManager.currentPanel);
 
-            logger.info(`Sending to AI: ${userMessage}`);
-            logger.info('Tools being passed to streamText:', Object.keys(tools));
+            logger.info(`[${streamId}] Sending to AI: ${userMessage}`);
+            logger.info(`[${streamId}] Tools configured: ${Object.keys(tools).join(', ') || 'None'}`);
+            logger.info(`[${streamId}] Attempting streamText...`);
+            let streamingOccurred = false; // Flag to track if text chunks were received
+            let streamResult: any = null; // Variable to store streamText result
 
-            const result = await streamText({
-                model: model,
-                prompt: userMessage,
-                tools: tools,
-                async onChunk({ chunk }) {
-                    // logger.info('Received chunk:', chunk); // Verbose logging
-                    switch (chunk.type) {
-                        case 'text-delta':
-                            PanelManager.currentPanel?.webview.postMessage({
-                                command: 'aiResponseChunk',
-                                payload: { id: streamId, text: chunk.textDelta }
-                            });
-                            break;
-                        case 'tool-call':
-                            logger.info(`Received chunk type: ${chunk.type}`, chunk);
-                            PanelManager.currentPanel?.webview.postMessage({
-                                command: 'aiThinkingStep',
-                                payload: { id: streamId, text: `Calling tool: ${chunk.toolName}...` }
-                            });
-                            break;
-                        // Add cases for other chunk types if needed (e.g., reasoning, source)
-                        default:
-                            // Optional: Log other chunk types if needed for debugging
-                            // logger.info(`Received chunk type: ${chunk.type}`, chunk);
-                            break;
-                    }
-                }
-            });
-
-            // Log final result details after stream completion
             try {
-                logger.info('streamText final result properties:', {
-                    finishReason: result.finishReason,
-                    usage: result.usage,
-                    // toolCalls: result.toolCalls, // Optional
-                    // toolResults: result.toolResults // Optional
+                streamResult = await streamText({
+                    model: model,
+                    prompt: userMessage,
+                    tools: tools,
+                    async onChunk({ chunk }) {
+                        logger.info(`[${streamId}] [onChunk] Received chunk type: ${chunk.type}`, JSON.stringify(chunk));
+                        switch (chunk.type) {
+                            case 'text-delta':
+                                streamingOccurred = true; // Mark that text streaming happened
+                                PanelManager.currentPanel?.webview.postMessage({
+                                    command: 'aiResponseChunk',
+                                    payload: { id: streamId, text: chunk.textDelta }
+                                });
+                                break;
+                            case 'tool-call':
+                                // Mark streaming occurred even for tool calls to prevent fallback
+                                streamingOccurred = true; 
+                                PanelManager.currentPanel?.webview.postMessage({
+                                    command: 'aiThinkingStep',
+                                    payload: { id: streamId, text: `Calling tool: ${chunk.toolName}...` }
+                                });
+                                break;
+                            default:
+                                break;
+                        }
+                    }
                 });
-            } catch (logError) {
-                logger.error('Error logging final streamText result:', logError);
+                logger.info(`[${streamId}] streamText call completed successfully.`);
+
+            } catch (streamError) {
+                // Handle errors during the streamText call itself
+                logger.error(`[${streamId}] Error during streamText call:`, streamError);
+                this.postErrorToWebview(`AI Stream Request Failed: ${streamError instanceof Error ? streamError.message : String(streamError)}`, 'sendMessage');
+                return; // Stop further processing on stream error
             }
 
-            logger.info(`Finished stream ${streamId}. Sending aiResponseComplete.`);
+            // --- Fallback Logic --- 
+            if (!streamingOccurred) {
+                logger.warn(`[${streamId}] No text/tool chunks received via onChunk. Analyzing streamResult...`);
+                logger.info(`[${streamId}] Fallback Check: streamResult.text type = ${typeof streamResult?.text}, value =`, streamResult?.text);
+
+                // Check for the specific Deepseek issue: text is an empty object {}
+                const isDeepseekObjectBug = 
+                    typeof streamResult?.text === 'object' && 
+                    streamResult.text !== null && 
+                    Object.keys(streamResult.text).length === 0;
+
+                if (isDeepseekObjectBug) {
+                    logger.warn(`[${streamId}] Detected empty object for streamResult.text. Attempting fallback with doGenerate...`);
+                    try {
+                        const generateResult = await model.doGenerate({ 
+                            inputFormat: 'prompt', 
+                            mode: { type: 'regular'}, 
+                            prompt: [{ role: 'user', content: [{ type: 'text', text: userMessage }] }]
+                        });
+                        logger.info(`[${streamId}] Fallback doGenerate completed. Result:`, JSON.stringify(generateResult, null, 2));
+
+                        if (generateResult && typeof generateResult.text === 'string' && generateResult.text.trim().length > 0) {
+                            logger.info(`[${streamId}] Fallback successful. Sending generated text as single chunk.`);
+                            PanelManager.currentPanel?.webview.postMessage({
+                                command: 'aiResponseChunk',
+                                payload: { id: streamId, text: generateResult.text }
+                            });
+                        } else {
+                            logger.warn(`[${streamId}] Fallback doGenerate did not produce usable text.`);
+                        }
+                        // Update streamResult with fallback details for final logging
+                        streamResult = { ...streamResult, fallbackResult: generateResult }; 
+
+                    } catch (generateError) {
+                        logger.error(`[${streamId}] Error during fallback doGenerate call:`, generateError);
+                        // Optionally post a specific fallback error, or rely on the completion message
+                    }
+                } else if (streamResult?.text && typeof streamResult.text === 'string' && streamResult.text.trim().length > 0) {
+                     // If text is a normal string but streaming didn't happen (unlikely based on previous tests, but handle defensively)
+                     logger.warn(`[${streamId}] No streaming chunks, but final result has string text. Sending as single chunk.`);
+                      PanelManager.currentPanel?.webview.postMessage({
+                          command: 'aiResponseChunk',
+                          payload: { id: streamId, text: streamResult.text }
+                      });
+                } else {
+                    logger.warn(`[${streamId}] No streaming chunks received and no usable text found in final streamResult or via fallback.`);
+                }
+            }
+
+            // Log final result details after stream completion (and potential fallback)
+            try {
+                logger.info(`[${streamId}] Final result properties (after stream/fallback):`, {
+                    finishReason: streamResult?.finishReason,
+                    usage: streamResult?.usage,
+                    ...(streamResult?.text && { text: streamResult.text }),
+                    ...(streamResult?.toolCalls && { toolCalls: streamResult.toolCalls }),
+                    ...(streamResult?.fallbackResult && { fallbackResult: streamResult.fallbackResult }) // Log fallback if it happened
+                });
+            } catch (logError) {
+                logger.error('Error logging final stream result:', logError);
+            }
+
+            logger.info(`Finished request ${streamId}. Sending aiResponseComplete.`);
             PanelManager.currentPanel?.webview.postMessage({ command: 'aiResponseComplete', payload: { id: streamId } });
 
         } catch (error: unknown) {
@@ -437,14 +499,16 @@ export class PanelManager {
      * @returns The AiConfig object or null if configuration is incomplete.
      */
     private async loadConfiguration(): Promise<AiConfig | null> {
-        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE.split('.')[0]);
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE); // Get the 'apexCoder.ai' section
         const provider = config.get<string>(CONFIG_PROVIDER.split('.').pop()!);
         if (!provider) { return null; }
 
         const modelId = config.get<string>(CONFIG_MODEL_ID.split('.').pop()!);
         const baseUrl = config.get<string>(CONFIG_BASE_URL.split('.').pop()!); // Allow undefined
         const secretKey = `${SECRET_API_KEY_PREFIX}${provider.toLowerCase()}`;
+        logger.info(`[loadConfiguration] Attempting to read secret key: ${secretKey}`); // Log key being read
         const apiKey = await this.context.secrets.get(secretKey);
+        logger.info(`[loadConfiguration] Value read for secret key ${secretKey}: ${apiKey ? '****** (found)' : 'undefined (not found)'}`); // Log result
 
         if (!apiKey && provider.toLowerCase() !== 'ollama') {
             logger.warn(`API key for ${provider} not found.`);
