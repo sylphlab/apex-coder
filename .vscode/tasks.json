@@ -12,41 +12,41 @@
     // Backend watch tasks
     {
       "label": "npm: watch:esbuild",
-        "type": "npm",
-        "script": "watch:esbuild",
-        "group": "build",
-        "problemMatcher": "$esbuild-watch",
-        "isBackground": true,
-        "presentation": { 
-          "reveal": "always", 
-          "panel": "shared",
-          "group": "watchTasks",
-          "close": true
-         },
-         "options": {
-           "statusbar": {
-             "hide": true
-           }
-         }
+      "type": "npm",
+      "script": "watch:esbuild",
+      "group": "build",
+      "problemMatcher": "$esbuild-watch",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "watchTasks",
+        "close": true
+      },
+      "options": {
+        "statusbar": {
+          "hide": true
+        }
+      }
     },
     {
       "label": "npm: watch:tsc",
-        "type": "npm",
-        "script": "watch:tsc",
-        "group": "build",
-        "problemMatcher": "$tsc-watch",
-        "isBackground": true,
-        "presentation": { 
-          "reveal": "always", 
-          "panel": "shared",
-          "group": "watchTasks",
-          "close": true
-       },
-       "options": {
-         "statusbar": {
-           "hide": true
-         }
-       }
+      "type": "npm",
+      "script": "watch:tsc",
+      "group": "build",
+      "problemMatcher": "$tsc-watch",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "watchTasks",
+        "close": true
+      },
+      "options": {
+        "statusbar": {
+          "hide": true
+        }
+      }
     },
     {
       "label": "npm: watch:vite",
@@ -67,11 +67,11 @@
           "activeOnStart": true,
           "beginsPattern": "VITE v[0-9]\\.[0-9]\\.[0-9]",
           "endsPattern": "(?:Local|Network):\\s+http"
-        },
+        }
       },
       "isBackground": true,
       "presentation": {
-        "reveal": "always", 
+        "reveal": "always",
         "panel": "shared",
         "group": "watchTasks",
         "close": true
@@ -85,31 +85,27 @@
     },
     // Meta task for Full Dev Watch (Default Build Task)
     {
-        "label": "Start Full Dev Watch",
-        "dependsOn": [
-            "npm: watch:esbuild",
-            "npm: watch:tsc",
-            "npm: watch:vite"
-        ],
-        "problemMatcher": [],
-        "group": { "kind": "build", "isDefault": true },
-        "options": {
-          "statusbar": {
-            "hide": true
-          }
+      "label": "Start Full Dev Watch",
+      "dependsOn": ["npm: watch:esbuild", "npm: watch:tsc", "npm: watch:vite"],
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true },
+      "options": {
+        "statusbar": {
+          "hide": true
         }
+      }
     },
     {
-        "label": "Run: Show Panel",
-        "type": "shell",
-        "command": "${command:apex-coder.showPanel}",
-        "presentation": { "reveal": "always", "clear": true },
-        "problemMatcher": [],
-        "options": {
-          "statusbar": {
-            "hide": true
-          }
+      "label": "Run: Show Panel",
+      "type": "shell",
+      "command": "${command:apex-coder.showPanel}",
+      "presentation": { "reveal": "always", "clear": true },
+      "problemMatcher": [],
+      "options": {
+        "statusbar": {
+          "hide": true
         }
+      }
     },
     {
       "label": "Kill All Terminals",
@@ -124,7 +120,7 @@
         "statusbar": {
           "hide": true
         }
-      },
+      }
     }
   ],
   "inputs": [

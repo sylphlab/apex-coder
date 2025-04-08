@@ -54,19 +54,34 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "bun run package",
-    "compile": "bun run check-types && bun run lint && node esbuild.js",
-    "watch": "npm-run-all -p watch:*",
-    "watch:esbuild": "node esbuild.js --watch",
-    "watch:vite": "bun --filter webview-ui dev",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "bun run check-types && bun run lint && node esbuild.js --production",
-    "check-types": "tsc --noEmit",
-    "lint": "eslint src",
-    "test:e2e": "vscode-test",
-    "test": "vitest run"
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector dist/extension.js",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:cov": "vitest run --coverage --reporter=junit --outputFile=test-report.junit.xml",
+    "lint": "eslint . --ext .ts,.tsx,.js,.cjs --cache",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.cjs --fix --cache",
+    "format": "prettier --write . --cache",
+    "check-format": "prettier --check . --cache",
+    "validate": "pnpm run check-format && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "start": "node dist/extension.js",
+    "typecheck": "tsc --noEmit",
+    "benchmark": "vitest bench",
+    "clean": "rimraf dist coverage",
+    "prepublishOnly": "pnpm run clean && pnpm run build",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "prepare": "husky",
+    "vscode:prepublish": "pnpm run package",
+    "compile": "pnpm run typecheck && pnpm run lint && node esbuild.js",
+    "package": "pnpm run typecheck && pnpm run lint && node esbuild.js --production"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.27.7",
+    "@commitlint/cli": "^19.4.1",
+    "@commitlint/config-conventional": "^19.4.1",
+    "@eslint/js": "^9.24.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.30",
     "@types/vscode": "^1.99.0",
@@ -76,8 +91,16 @@
     "@vscode/test-electron": "^2.5.1",
     "esbuild": "^0.25.2",
     "eslint": "^9.24.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "globals": "^16.0.0",
+    "husky": "^9.1.4",
+    "lint-staged": "^15.2.7",
     "npm-run-all": "^4.1.5",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.29.1",
     "vitest": "^3.1.1"
   },
   "dependencies": {
@@ -101,6 +124,16 @@
     "@iconify-json/carbon": "^1.2.8",
     "@openrouter/ai-sdk-provider": "^0.4.5",
     "ai": "^4.3.2",
+    "ollama-ai-provider": "^1.2.0",
     "zod": "^3.24.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,cjs}": [
+      "eslint --fix --cache",
+      "prettier --write --cache"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write --cache"
+    ]
   }
 }

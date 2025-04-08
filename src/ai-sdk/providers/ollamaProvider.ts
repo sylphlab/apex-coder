@@ -1,96 +1,94 @@
-import type { LanguageModel } from 'ai';
-import { BaseAIProvider } from './baseProvider';
-import { logger } from '../../utils/logger';
+import type { LanguageModel } from "ai";
+import { BaseAIProvider } from "./baseProvider";
+import { logger } from "../../utils/logger";
 
 /**
  * Ollama provider implementation
  */
 export class OllamaProvider extends BaseAIProvider {
-    constructor() {
-        super('ollama');
+  private readonly defaultBaseUrl = "http://localhost:11434";
+
+  constructor() {
+    super("ollama");
+  }
+
+  async createModel(
+    modelId: string,
+    credentials: Record<string, unknown>,
+  ): Promise<LanguageModel> {
+    const baseUrl =
+      (credentials.baseUrl as string | undefined) ?? this.defaultBaseUrl;
+    logger.info(`Using Ollama base URL: ${baseUrl}`);
+
+    try {
+      const { createOllama } = await import("ollama-ai-provider");
+
+      if (typeof createOllama !== "function") {
+        throw new Error(
+          "createOllama function not found in ollama-ai-provider module.",
+        );
+      }
+
+      const provider = createOllama({
+        baseURL: baseUrl,
+      });
+
+      return provider(modelId);
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "MODULE_NOT_FOUND"
+      ) {
+        logger.error(
+          "Ollama provider package 'ollama-ai-provider' is not installed.",
+          error,
+        );
+        throw new Error(
+          "Ollama provider package is not installed. Please run `pnpm add ollama-ai-provider`.",
+        );
+      }
+      logger.error("Failed to create Ollama model:", errorMsg, error);
+      throw new Error(`Failed to create Ollama model: ${errorMsg}`);
     }
-    
-    async createModel(modelId: string, credentials: Record<string, any>): Promise<LanguageModel> {
-        try {
-            // Validate required credentials
-            if (!credentials.baseUrl) {
-                // Default to localhost if not provided
-                credentials.baseUrl = 'http://localhost:11434';
-                logger.info('Using default Ollama base URL: http://localhost:11434');
-            }
-            
-            try {
-                // Try to dynamically import the Ollama provider
-                // This is wrapped in a try-catch because the package might not be installed
-                // Use Function constructor to avoid TypeScript error for missing module
-                const dynamicImport = new Function('modulePath', 'return import(modulePath)');
-                const ollamaModule = await dynamicImport('ollama-ai-provider');
-                
-                // Create the provider instance
-                const provider = ollamaModule.createOllama({
-                    baseURL: credentials.baseUrl
-                });
-                
-                // Return the model instance
-                return provider(modelId);
-            } catch (importError) {
-                logger.error('Failed to import Ollama provider:', importError);
-                throw new Error('Ollama provider package is not installed. Please install the ollama-ai-provider package.');
-            }
-        } catch (error) {
-            logger.error('Failed to create Ollama model:', error);
-            throw new Error(`Failed to create Ollama model: ${error instanceof Error ? error.message : String(error)}`);
-        }
+  }
+
+  // getAvailableModels should ideally use the logic from ProviderService
+  // but keeping static list for now as ProviderService needs refactoring
+  // Keeping async to match BaseAIProvider interface, even if currently static
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getAvailableModels(
+    _credentials?: Record<string, unknown>,
+  ): Promise<string[]> {
+    logger.warn(
+      "Returning static list for Ollama models. Dynamic fetching via ProviderService is preferred.",
+    );
+    return ["llama3", "mistral", "codellama", "phi3"];
+  }
+
+  async validateCredentials(
+    credentials: Record<string, unknown>,
+  ): Promise<boolean> {
+    const baseUrl =
+      (credentials.baseUrl as string | undefined) ?? this.defaultBaseUrl;
+    logger.info(`Validating Ollama credentials with base URL: ${baseUrl}`);
+
+    try {
+      const response = await fetch(`${baseUrl}/api/tags`);
+      return response.ok;
+    } catch (error: unknown) {
+      logger.error(
+        `Failed to validate Ollama credentials at ${baseUrl}:`,
+        error,
+      );
+      return false;
     }
-    
-    async getAvailableModels(credentials?: Record<string, any>): Promise<string[]> {
-        try {
-            // Use provided baseUrl or default
-            const baseUrl = credentials?.baseUrl || 'http://localhost:11434';
-            
-            // In a real implementation, this would fetch models from the Ollama API
-            // For example:
-            // const response = await fetch(`${baseUrl}/api/tags`);
-            // const data = await response.json();
-            // return data.models.map((model: any) => model.name);
-            
-            // For now, return a static list of common models
-            return [
-                'llama3',
-                'mistral',
-                'codellama',
-                'phi3'
-            ];
-        } catch (error) {
-            logger.error('Failed to fetch Ollama models:', error);
-            // Return default models on error
-            return ['llama3', 'mistral', 'codellama', 'phi3'];
-        }
-    }
-    
-    async validateCredentials(credentials: Record<string, any>): Promise<boolean> {
-        try {
-            // For Ollama, we just need to check if the baseUrl is reachable
-            const baseUrl = credentials?.baseUrl || 'http://localhost:11434';
-            
-            // In a real implementation, you would make a test request to the Ollama API
-            // For example:
-            // const response = await fetch(`${baseUrl}/api/version`);
-            // return response.ok;
-            
-            // For now, just return true if the baseUrl is provided or using default
-            return true;
-        } catch (error) {
-            logger.error('Failed to validate Ollama credentials:', error);
-            return false;
-        }
-    }
-    
-    getRequiredCredentialFields(): string[] {
-        // baseUrl is optional, as we default to localhost
-        return [];
-    }
+  }
+
+  getRequiredCredentialFields(): string[] {
+    return [];
+  }
 }
 
-// Export a singleton instance
 export const ollamaProvider = new OllamaProvider();

@@ -1,9 +1,13 @@
-import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
-import { ProviderService, type ProviderDetails, type ModelInfo } from '../services/providerService';
-import { vscode } from '../vscode'; // Import vscode instance
+import { defineStore } from "pinia";
+import { ref, computed, watch } from "vue";
+import {
+  ProviderService,
+  type ProviderDetails,
+  type ModelInfo,
+} from "../services/providerService";
+import { vscode } from "../vscode"; // Import vscode instance
 
-export const useConfigStore = defineStore('config', () => {
+export const useConfigStore = defineStore("config", () => {
   // --- State ---
   const providers = ref<ProviderDetails[]>([]);
   const models = ref<ModelInfo[]>([]);
@@ -13,11 +17,11 @@ export const useConfigStore = defineStore('config', () => {
   const configError = ref<string | null>(null);
 
   // Setup form state
-  const setupProvider = ref<string>('');
-  const setupModelId = ref<string>('');
-  const setupApiKey = ref<string>('');
-  const setupBaseUrl = ref<string>('');
-  const setupCustomModelId = ref<string>('');
+  const setupProvider = ref<string>("");
+  const setupModelId = ref<string>("");
+  const setupApiKey = ref<string>("");
+  const setupBaseUrl = ref<string>("");
+  const setupCustomModelId = ref<string>("");
 
   // Configuration status from extension
   const providerSet = ref<boolean>(false);
@@ -28,12 +32,14 @@ export const useConfigStore = defineStore('config', () => {
 
   // --- Computed ---
   const selectedProviderDetails = computed(() => {
-    return providers.value.find(p => p.id === setupProvider.value);
+    return providers.value.find((p) => p.id === setupProvider.value);
   });
 
   const isConfigComplete = computed(() => {
     if (!providerSet.value) return false;
-    const providerDetails = providers.value.find(p => p.id === configuredProvider.value); // Check based on *configured* provider
+    const providerDetails = providers.value.find(
+      (p) => p.id === configuredProvider.value,
+    ); // Check based on *configured* provider
     if (providerDetails?.requiresApiKey) {
       return apiKeySet.value;
     }
@@ -47,8 +53,12 @@ export const useConfigStore = defineStore('config', () => {
       loadingError.value = null;
       providers.value = await ProviderService.getAllProviders();
     } catch (error) {
-      loadingError.value = error instanceof Error ? error.message : 'Failed to load providers';
-      console.error('[configStore] Error loading providers during initial fetch:', error); // More specific log
+      loadingError.value =
+        error instanceof Error ? error.message : "Failed to load providers";
+      console.error(
+        "[configStore] Error loading providers during initial fetch:",
+        error,
+      ); // More specific log
       providers.value = []; // Clear providers on error
     } finally {
       isLoadingProviders.value = false;
@@ -78,9 +88,11 @@ export const useConfigStore = defineStore('config', () => {
   function saveConfiguration() {
     configError.value = null;
     const provider = setupProvider.value;
-    const modelId = selectedProviderDetails.value?.allowCustomModel && setupCustomModelId.value.trim()
-                    ? setupCustomModelId.value.trim()
-                    : setupModelId.value;
+    const modelId =
+      selectedProviderDetails.value?.allowCustomModel &&
+      setupCustomModelId.value.trim()
+        ? setupCustomModelId.value.trim()
+        : setupModelId.value;
 
     const payload = {
       provider: provider,
@@ -90,25 +102,25 @@ export const useConfigStore = defineStore('config', () => {
     };
 
     if (!payload.provider) {
-      configError.value = 'Please select a Provider.';
+      configError.value = "Please select a Provider.";
       return;
     }
     if (selectedProviderDetails.value?.requiresApiKey && !payload.apiKey) {
-       configError.value = `API Key is required for ${selectedProviderDetails.value.name}.`;
-       return;
-     }
+      configError.value = `API Key is required for ${selectedProviderDetails.value.name}.`;
+      return;
+    }
     // Base URL validation (optional for Ollama)
     // if (selectedProviderDetails.value?.requiresBaseUrl && !payload.baseUrl) {
     //   configError.value = `Base URL is required for ${selectedProviderDetails.value.name}.`;
     //   return;
     // }
 
-    console.log('Sending saveConfiguration message via store:', payload);
-    vscode.postMessage({ command: 'saveConfiguration', payload });
+    console.log("Sending saveConfiguration message via store:", payload);
+    vscode.postMessage({ command: "saveConfiguration", payload });
   }
 
   function updateConfigStatus(payload: any) {
-    console.log('Updating config status in store:', payload);
+    console.log("Updating config status in store:", payload);
     providerSet.value = payload?.providerSet ?? false;
     apiKeySet.value = providerSet.value && (payload?.apiKeySet ?? false);
     isModelInitialized.value = payload?.isModelInitialized ?? false;
@@ -116,12 +128,12 @@ export const useConfigStore = defineStore('config', () => {
     configuredModelId.value = payload?.modelId ?? null;
 
     // If config was just saved successfully, clear local error
-    if (payload?.commandSource === 'configSaved' && isModelInitialized.value) {
-        configError.value = null;
+    if (payload?.commandSource === "configSaved" && isModelInitialized.value) {
+      configError.value = null;
     }
     // If config saved but model failed to init, set error
-    if (payload?.commandSource === 'configSaved' && !isModelInitialized.value) {
-        configError.value = `Configuration saved, but failed to initialize model for ${configuredProvider.value || 'selected provider'}. Check model ID, API key, or connection.`;
+    if (payload?.commandSource === "configSaved" && !isModelInitialized.value) {
+      configError.value = `Configuration saved, but failed to initialize model for ${configuredProvider.value || "selected provider"}. Check model ID, API key, or connection.`;
     }
   }
 
@@ -133,8 +145,8 @@ export const useConfigStore = defineStore('config', () => {
   // Watch for changes in the selected provider and fetch models accordingly
   watch(setupProvider, (newProviderId) => {
     // Reset model selection when provider changes
-    setupModelId.value = '';
-    setupCustomModelId.value = '';
+    setupModelId.value = "";
+    setupCustomModelId.value = "";
     fetchModelsForProvider(newProviderId);
   });
 

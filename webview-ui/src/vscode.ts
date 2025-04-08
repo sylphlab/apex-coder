@@ -1,4 +1,4 @@
-import type { WebviewApi } from 'vscode-webview';
+import type { WebviewApi } from "vscode-webview";
 
 /**
  * A utility wrapper around the acquireVsCodeApi() function, which enables
@@ -13,10 +13,12 @@ class VsCodeApiWrapper {
     // Check if the acquireVsCodeApi function exists in the current context.
     // Cast window to any to access potentially injected functions like acquireVsCodeApi
     const global = window as any;
-    if (typeof global.acquireVsCodeApi === 'function') {
+    if (typeof global.acquireVsCodeApi === "function") {
       this.vscodeApi = global.acquireVsCodeApi();
     } else {
-      console.warn('acquireVsCodeApi function not found. Running outside VS Code webview?');
+      console.warn(
+        "acquireVsCodeApi function not found. Running outside VS Code webview?",
+      );
       // Provide a mock API for development outside VS Code if needed
       // this.vscodeApi = { postMessage: (message) => console.log('Mock postMessage:', message), getState: () => undefined, setState: () => {} };
     }
@@ -30,7 +32,7 @@ class VsCodeApiWrapper {
     if (this.vscodeApi) {
       this.vscodeApi.postMessage(message);
     } else {
-      console.warn('VS Code API not available. Message not sent:', message);
+      console.warn("VS Code API not available. Message not sent:", message);
     }
   }
 
@@ -39,16 +41,18 @@ class VsCodeApiWrapper {
    * @param callback The callback function to handle received messages.
    * @returns A function to remove the listener.
    */
-  public onMessage(callback: (message: MessageEvent<unknown>) => void): () => void {
-    window.addEventListener('message', callback);
-    return () => window.removeEventListener('message', callback);
+  public onMessage(
+    callback: (message: MessageEvent<unknown>) => void,
+  ): () => void {
+    window.addEventListener("message", callback);
+    return () => window.removeEventListener("message", callback);
   }
 
   /**
    * Get the persistent state object for the webview.
    * @returns The state object or undefined if not available.
    */
-   public getState(): unknown | undefined {
+  public getState(): unknown | undefined {
     return this.vscodeApi?.getState();
   }
 
@@ -66,14 +70,14 @@ export const vscode = new VsCodeApiWrapper();
 
 // Example message structure (optional, but good practice)
 export interface VsCodeMessage {
-    command: string;
-    payload?: unknown;
-    requestId?: string; // Optional for request-response patterns
+  command: string;
+  payload?: unknown;
+  requestId?: string; // Optional for request-response patterns
 }
 
 export interface VsCodeResponse {
-    command: 'response';
-    requestId: string;
-    payload?: unknown;
-    error?: string;
+  command: "response";
+  requestId: string;
+  payload?: unknown;
+  error?: string;
 }

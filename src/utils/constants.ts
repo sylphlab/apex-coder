@@ -1,9 +1,9 @@
 /**
  * Extension-wide constants.
  */
-export const EXTENSION_ID = 'apexCoder'; // Use camelCase to match package.json registration
-export const PANEL_ID = 'apexCoderPanel';
-export const PANEL_TITLE = 'Apex Coder';
+export const EXTENSION_ID = "apexCoder"; // Use camelCase to match package.json registration
+export const PANEL_ID = "apexCoderPanel";
+export const PANEL_TITLE = "Apex Coder";
 
 // Commands
 export const COMMAND_SHOW_PANEL = `${EXTENSION_ID}.showPanel`;

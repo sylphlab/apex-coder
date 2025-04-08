@@ -4,15 +4,14 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'getConfigStatus'): void;
-  (e: 'changeSettings'): void;
+  (e: "getConfigStatus"): void;
+  (e: "changeSettings"): void;
 }>();
 
 // Assuming router is available globally or passed down if needed for api-keys
 // For simplicity, let's keep the router push logic here for now
-import { useRouter } from 'vue-router';
+import { useRouter } from "vue-router";
 const router = useRouter();
-
 </script>
 
 <template>
@@ -48,8 +47,9 @@ const router = useRouter();
   @apply p-1.5 rounded text-nordic-text-secondary hover:bg-nordic-bg-hover hover:text-nordic-text transition-colors duration-150;
 }
 /* Ensure UnoCSS Icons work */
-[class^="i-"], [class*=" i-"] {
+[class^="i-"],
+[class*=" i-"] {
   display: inline-block;
   vertical-align: middle;
 }
-</style> 
+</style>

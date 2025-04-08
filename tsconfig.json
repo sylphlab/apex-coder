@@ -1,25 +1,40 @@
 {
-	"compilerOptions": {
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
-		"target": "ES2022",
-		"lib": [
-			"ES2022",
-			"DOM" // Add DOM library for web API types like RequestCredentials, FileList etc.
-		],
-		"sourceMap": true,
-		"rootDir": "src",
-		"strict": true,   /* enable all strict type-checking options */
-		/* Additional Checks */
-		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
-		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
-		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
-	},
-	"include": [
-		"src/**/*" // Only include files within the src directory
-	],
-	"exclude": [ // Keep exclude for node_modules etc.
-		"node_modules",
-		".vscode-test"
-	]
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM" // Add DOM library for web API types like RequestCredentials, FileList etc.
+    ],
+    "outDir": "dist", // Specify output directory
+    "sourceMap": true,
+    "strict": true /* enable all strict type-checking options */,
+    /* Additional Recommended Strict Checks */
+    "noImplicitAny": true, // Enforce stricter 'any' usage (already part of strict)
+    "strictNullChecks": true, // Enforce strict null checks (already part of strict)
+    "noUnusedLocals": true, // Report errors on unused local variables.
+    "noUnusedParameters": true /* Report errors on unused parameters. */,
+    "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
+    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
+    "forceConsistentCasingInFileNames": true, // Ensure file name casing consistency
+    "esModuleInterop": true, // Enables compatibility with CommonJS modules
+    "skipLibCheck": true, // Skip type checking of declaration files
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "src/**/*", // Keep including src files
+    "*.js",     // Include root JS files (e.g., esbuild.js)
+    "*.mjs",    // Include root MJS files (e.g., eslint.config.mjs)
+    "*.ts",     // Include root TS files (e.g., vitest.config.ts)
+    "webview-ui/src/**/*.ts", // Include webview UI source files
+    "webview-ui/src/**/*.vue", // Include webview UI Vue files
+    "webview-ui/*.ts" // Include webview UI config files (e.g., uno.config.ts, vite.config.ts)
+  ],
+  "exclude": [
+    "node_modules",
+    ".vscode-test",
+    "dist",
+    "webview-ui/dist" // Exclude webview UI build output
+  ]
 }

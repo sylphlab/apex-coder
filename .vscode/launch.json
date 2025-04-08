@@ -1,28 +1,28 @@
 {
-	"version": "0.2.0",
-	"configurations": [
-		{
-			"name": "Run Extension with UI Dev Server",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-                "${workspaceFolder}",
-                "--extensionDevelopmentPath=${workspaceFolder}"
-            ],
-			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ],
-			"preLaunchTask": "Start Full Dev Watch", // Point to the new meta task
-            "postDebugTask": "Kill All Terminals"
-		},
-		{
-			"name": "Run Extension", // Backend only debugging
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-                "${workspaceFolder}",
-                "--extensionDevelopmentPath=${workspaceFolder}"
-            ],
-			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ]
-		}
-	],
-	"compounds": [] // Keep compounds empty
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension with UI Dev Server",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "${workspaceFolder}",
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "Start Full Dev Watch", // Point to the new meta task
+      "postDebugTask": "Kill All Terminals"
+    },
+    {
+      "name": "Run Extension", // Backend only debugging
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "${workspaceFolder}",
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    }
+  ],
+  "compounds": [] // Keep compounds empty
 }

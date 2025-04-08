@@ -1,8 +1,8 @@
 packages:
   # include packages in subfolders (e.g., webview-ui)
-  - 'webview-ui'
+  - "webview-ui"
   # include root package.json
-  - '.'
+  - "."
 
 # Optional: Keep existing ignored dependencies if needed
 ignoredBuiltDependencies:

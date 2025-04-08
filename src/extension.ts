@@ -1,271 +1,432 @@
-import * as vscode from 'vscode';
-import { PanelManager } from './webview/panelManager';
-import { logger } from './utils/logger';
-import { COMMAND_SET_API_KEY, COMMAND_SHOW_PANEL, SECRET_API_KEY_PREFIX } from './utils/constants';
-import { ProviderService } from './ai-sdk/providerService';
-import * as path from 'path'; // Import path for potential use later if needed
+import * as vscode from "vscode";
+import { PanelManager } from "./webview/panelManager";
+import { logger } from "./utils/logger";
+import {
+  COMMAND_SET_API_KEY,
+  COMMAND_SHOW_PANEL,
+  SECRET_API_KEY_PREFIX,
+  // SUPPORTED_MODELS, // Commenting out due to persistent export/resolution issues
+  CONFIG_PROVIDER,
+  CONFIG_MODEL_ID,
+} from "./utils/constants";
+import { ProviderService } from "./ai-sdk/providerService";
+import type { ProviderDetails } from "./ai-sdk/providerService";
+import { initializeAiSdkModel } from "./ai-sdk/configLoader.js";
 
 let panelManager: PanelManager | undefined;
 
+// --- Helper Function Implementations (Moved Before Usage) ---
+
+/**
+ * Retrieves the workspace root path from the extension context.
+ * Logs an error and shows a message if the path cannot be determined.
+ * @param context The extension context.
+ * @returns The workspace root path or undefined if not found.
+ */
+async function getWorkspaceRootPath(
+  context: vscode.ExtensionContext,
+): Promise<string | undefined> {
+  const workspaceRootPath: string | undefined = context.extensionPath;
+  if (workspaceRootPath) {
+    logger.info(
+      `Using workspace root from context.extensionPath: ${workspaceRootPath}`,
+    );
+    return workspaceRootPath;
+  } else {
+    logger.error(
+      "context.extensionPath is undefined. Cannot determine workspace root.",
+    );
+    // Await this call now
+    await vscode.window.showErrorMessage(
+      "Apex Coder could not determine its installation path.",
+    );
+    return undefined;
+  }
+}
+
+/**
+ * Checks if the API key for the configured provider is present in secrets.
+ * Shows a warning message with an option to set the key if it's missing.
+ * @param context The extension context.
+ */
+async function checkApiKeyOnActivation(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  try {
+    const config = vscode.workspace.getConfiguration("apexCoder.ai");
+    // Replace non-null assertion with check or default value
+    const providerConfigKey = CONFIG_PROVIDER.split(".").pop();
+    if (!providerConfigKey) {
+      logger.error("Internal Error: Could not derive provider config key.");
+      return;
+    }
+    const providerId = config.get<string>(providerConfigKey) ?? "";
+
+    if (!providerId) {
+      logger.info("No provider configured yet.");
+      return;
+    }
+
+    // Fetch all providers and find the configured one
+    const allProviders = await ProviderService.getAllProviders();
+    const providerInfo = allProviders.find((p) => p.id === providerId);
+
+    if (!providerInfo) {
+      logger.warn(
+        `Configured provider '${providerId}' not found in supported providers list.`,
+      );
+      return;
+    }
+
+    if (!providerInfo.requiresApiKey) {
+      logger.info(
+        `Provider '${providerInfo.name}' does not require an API key check on activation.`,
+      );
+      return;
+    }
+
+    const secretKey = `${SECRET_API_KEY_PREFIX}${providerId.toLowerCase()}`;
+    logger.info(`Attempting to read secret key: ${secretKey}`);
+    const apiKey = await context.secrets.get(secretKey);
+    logger.info(
+      `Value read for secret key ${secretKey}: ${apiKey ? "****** (found)" : "undefined (not found)"}`,
+    );
+
+    if (!apiKey) {
+      logger.warn(
+        `API Key for provider '${providerInfo.name}' not found in secrets. Prompting user.`,
+      );
+      const setupAction = "Set API Key";
+      const selection = await vscode.window.showWarningMessage(
+        `API Key for the configured provider '${providerInfo.name}' is missing.`,
+        setupAction,
+      );
+      if (selection === setupAction) {
+        // Await command execution if user clicks the button
+        await vscode.commands.executeCommand(COMMAND_SET_API_KEY);
+      }
+    } else {
+      logger.info(`API Key found for provider '${providerInfo.name}'.`);
+    }
+  } catch (error) {
+    // Catch specific error types if possible, otherwise use unknown
+    logger.error("Error checking API key on activation:", error);
+  }
+}
+
+/**
+ * Prompts the user for an API key with basic validation.
+ * @param provider The selected provider information.
+ * @returns The entered API key or undefined if cancelled.
+ */
+async function promptForApiKey(
+  provider: ProviderDetails,
+): Promise<string | undefined> {
+  const apiKey = await vscode.window.showInputBox({
+    prompt: `Enter API Key for ${provider.name}`,
+    password: true,
+    ignoreFocusOut: true,
+    validateInput: (value: string): string | null => {
+      if (!value) {
+        return "API Key is required";
+      }
+      // Use const for provider ID
+      const providerIdLower = provider.id.toLowerCase();
+      switch (providerIdLower) {
+        case "openai":
+          if (!value.startsWith("sk-"))
+            return 'OpenAI keys typically start with "sk-"';
+          break;
+        case "anthropic":
+          if (!value.startsWith("sk-ant-"))
+            return 'Anthropic keys typically start with "sk-ant-"';
+          break;
+        case "googleai":
+          if (value.length < 30)
+            return "Google AI keys are typically longer than 30 characters";
+          break;
+      }
+      return null;
+    },
+  });
+
+  if (!apiKey) {
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    await vscode.window.showWarningMessage(
+      `API Key setup cancelled: API Key for ${provider.name} not entered.`,
+    );
+    return undefined;
+  }
+  return apiKey;
+}
+
+/**
+ * Updates the VS Code configuration for the provider and model.
+ * @param providerId The selected provider ID.
+ * @param modelId The selected model ID (optional).
+ */
+async function updateConfiguration(
+  providerId: string,
+  modelId?: string,
+): Promise<void> {
+  const config = vscode.workspace.getConfiguration("apexCoder.ai");
+  const updates: Promise<void>[] = [];
+
+  // Simplify getting config keys and handle potential undefined
+  const providerConfigKey = CONFIG_PROVIDER.split(".").pop();
+  const modelConfigKey = CONFIG_MODEL_ID.split(".").pop();
+  // const baseConfigKey = CONFIG_BASE_URL.split(".").pop(); // Assuming unused for now
+
+  if (!providerConfigKey || !modelConfigKey) {
+    logger.error("Internal Error: Could not derive config keys.");
+    return;
+  }
+
+  if (config.get<string>(providerConfigKey) !== providerId) {
+    updates.push(
+      config.update(
+        providerConfigKey,
+        providerId,
+        vscode.ConfigurationTarget.Global,
+      ) as Promise<void>,
+    );
+    logger.info(`Updated provider configuration to: ${providerId}`);
+  }
+
+  if (modelId && config.get<string>(modelConfigKey) !== modelId) {
+    updates.push(
+      config.update(modelConfigKey, modelId, vscode.ConfigurationTarget.Global) as Promise<void>,
+    );
+    logger.info(`Updated model configuration to: ${modelId}`);
+  } else if (!modelId && providerId.toLowerCase() === "ollama") {
+    if (config.get<string>(modelConfigKey) !== undefined) {
+      updates.push(
+        config.update(
+          modelConfigKey,
+          undefined,
+          vscode.ConfigurationTarget.Global,
+        ) as Promise<void>,
+      );
+      logger.info(`Cleared model configuration for Ollama.`);
+    }
+  }
+
+  await Promise.all(updates);
+}
+
+/**
+ * Tests the connection to the selected provider using the provided credentials.
+ * Shows progress and notification messages.
+ * @param provider The selected provider.
+ * @param apiKey The entered API key.
+ * @param modelId The selected model ID (optional).
+ */
+async function testProviderConnection(
+  provider: ProviderDetails,
+  apiKey: string,
+  modelId?: string,
+): Promise<void> {
+  const testResult = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `Testing ${provider.name} connection...`,
+      cancellable: false,
+    },
+    async (): Promise<boolean> => {
+      // Explicit return type for arrow func
+      try {
+        await initializeAiSdkModel({
+          provider: provider.id,
+          modelId: modelId,
+          credentials: {
+            apiKey: apiKey,
+          },
+        });
+        return true;
+      } catch (error: unknown) {
+        // Use unknown for catch
+        logger.error("Connection test failed:", error);
+        return false;
+      }
+    },
+  );
+
+  if (testResult) {
+    // Await this call now
+    await vscode.window.showInformationMessage(
+      `Successfully connected to ${provider.name}!`,
+    );
+  } else {
+    // Await this call now
+    await vscode.window.showWarningMessage(
+      `Failed to connect to ${provider.name}. Please check the API key and network connection.`,
+    );
+  }
+}
+
+/**
+ * Handles the command to set the AI provider and API key.
+ * Guides the user through selecting a provider, model, and entering the API key.
+ * Stores the configuration and secret.
+ * @param context The extension context.
+ */
+async function handleSetApiKeyCommand(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  logger.info(`Command executed: ${COMMAND_SET_API_KEY}`);
+  try {
+    // 1. Select Provider
+    const allProviders = await ProviderService.getAllProviders();
+    const providerQuickPickItems = allProviders.map((p) => ({
+      label: p.name,
+      detail: p.requiresApiKey ? "Requires API key" : "No API key needed",
+      value: p, // Store the whole provider object
+    }));
+
+    const selectedProviderItem = await vscode.window.showQuickPick<
+      vscode.QuickPickItem & { value: ProviderDetails }
+    >(providerQuickPickItems, {
+      placeHolder: "Select AI Provider",
+      ignoreFocusOut: true,
+    });
+
+    if (!selectedProviderItem) {
+      vscode.window.showWarningMessage(
+        "API Key setup cancelled: No provider selected.",
+      );
+      return;
+    }
+    const selectedProvider = selectedProviderItem.value;
+    const providerIdLower = selectedProvider.id.toLowerCase();
+
+    // 2. Select Model (if applicable and not Ollama)
+    let modelValue: string | undefined = undefined;
+    // Comment out usage of SUPPORTED_MODELS
+    // const modelsForSelectedProvider = SUPPORTED_MODELS[providerIdLower];
+    // if (providerIdLower !== "ollama" && modelsForSelectedProvider) {
+    //   const modelSelection = await vscode.window.showQuickPick<
+    //     vscode.QuickPickItem & { value: string }
+    //   >(modelsForSelectedProvider, {
+    //     placeHolder: `Select ${selectedProvider.name} Model`,
+    //     ignoreFocusOut: true,
+    //   });
+    //
+    //   if (!modelSelection) {
+    //     vscode.window.showWarningMessage("Model selection cancelled");
+    //     return;
+    //   }
+    //   modelValue = modelSelection.value;
+    // }
+    // Temporary: Ask for model ID manually if not Ollama, as SUPPORTED_MODELS is unavailable
+    if (providerIdLower !== "ollama") {
+      modelValue = await vscode.window.showInputBox({
+        prompt: `Enter Model ID for ${selectedProvider.name} (e.g., gpt-4o, gemini-1.5-flash)`,
+        ignoreFocusOut: true,
+      });
+      if (!modelValue) {
+        void vscode.window.showWarningMessage(
+          "Model ID input cancelled or empty.",
+        );
+        return;
+      }
+      logger.info(`Using manually entered model ID: ${modelValue}`);
+    }
+
+    // 3. Handle API Key (if required)
+    let apiKey: string | undefined = undefined;
+    if (selectedProvider.requiresApiKey) {
+      apiKey = await promptForApiKey(selectedProvider);
+      if (!apiKey) {
+        return; // User cancelled
+      }
+      const secretKey = `${SECRET_API_KEY_PREFIX}${providerIdLower}`;
+      await context.secrets.store(secretKey, apiKey);
+      // eslint-disable-next-line @typescript-eslint/await-thenable
+      await vscode.window.showInformationMessage(
+        `API Key for ${selectedProvider.name} stored successfully.`,
+      );
+      logger.info(`API Key stored for provider: ${selectedProvider.id}`);
+    } else {
+      logger.info(
+        `Provider '${selectedProvider.name}' does not require an API key.`,
+      );
+      const secretKey = `${SECRET_API_KEY_PREFIX}${providerIdLower}`;
+      await context.secrets.delete(secretKey);
+      logger.info(
+        `Removed any existing secret for keyless provider: ${selectedProvider.id}`,
+      );
+    }
+
+    // 4. Update Configuration
+    await updateConfiguration(selectedProvider.id, modelValue);
+
+    // 5. Test Connection (if API key was provided)
+    if (apiKey) {
+      await testProviderConnection(selectedProvider, apiKey, modelValue);
+    }
+
+    // Show panel at the end - call directly, no await/void needed?
+    panelManager?.showPanel();
+  } catch (error: unknown) {
+    const errorMsg = `Failed to set API Key: ${error instanceof Error ? error.message : String(error)}`;
+    logger.error("Error setting API key:", error);
+    // Await this call now
+    await vscode.window.showErrorMessage(errorMsg);
+  }
+}
+
+// --- Activation & Deactivation ---
+
 /**
  * Activates the Apex Coder extension.
- * This function is called when the extension is activated (e.g., on command execution or startup).
- * @param context The extension context provided by VS Code.
+ * @param context The extension context.
  */
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
-	logger.info('Activating Apex Coder extension...');
+export async function activate(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  logger.info("Activating Apex Coder extension...");
 
-	// --- Determine Workspace Root using context.extensionPath (reliable in dev mode) ---
-	const workspaceRootPath: string | undefined = context.extensionPath;
-	if (workspaceRootPath) {
-		logger.info(`Using workspace root from context.extensionPath: ${workspaceRootPath}`);
-	} else {
-		// This case is highly unlikely in standard extension loading scenarios
-		logger.error('context.extensionPath is undefined during activation. Cannot determine workspace root.');
-		// Handle error - showing a message is probably best
-		vscode.window.showErrorMessage("Apex Coder could not determine its installation path.");
-		return; // Stop activation if path is missing
-	}
-	// --- End Determine Workspace Root ---
+  const workspaceRootPath = await getWorkspaceRootPath(context);
+  if (!workspaceRootPath) {
+    return;
+  }
 
-	// Initialize the Panel Manager, passing the determined workspace root path
-	panelManager = new PanelManager(context, context.extensionMode, workspaceRootPath); // Pass workspaceRootPath
+  panelManager = new PanelManager(
+    context,
+    context.extensionMode,
+    workspaceRootPath,
+  );
 
-	// --- Check for missing API Key on activation ---
-	try {
-		const config = vscode.workspace.getConfiguration('apexCoder.ai');
-		const provider = config.get<string>('provider');
-		if (provider && provider.toLowerCase() !== 'ollama') {
-			const providerLower = provider.toLowerCase();
-			const secretKey = `${SECRET_API_KEY_PREFIX}${providerLower}`;
-			logger.info(`Attempting to read secret key: ${secretKey}`); // Log key being read
-			const apiKey = await context.secrets.get(secretKey);
-			logger.info(`Value read for secret key ${secretKey}: ${apiKey ? '****** (found)' : 'undefined (not found)'}`); // Log result
-			if (!apiKey) {
-				// Skip warning for deepseek to avoid annoying the user
-				if (providerLower !== 'deepseek') {
-					logger.warn(`API Key for provider '${provider}' not found in secrets. Prompting user.`);
-					const setupAction = 'Set API Key';
-					vscode.window.showWarningMessage(
-						`API Key for the configured provider '${provider}' is missing.`,
-						setupAction
-					).then(selection => {
-						if (selection === setupAction) {
-							vscode.commands.executeCommand(COMMAND_SET_API_KEY);
-						}
-					});
-				}
-				// No automatic prompt needed here anymore as the warning message handles it.
-			} else {
-				logger.info(`API Key found for provider '${provider}'.`);
-			}
-		} else if (!provider) {
-	           logger.info('No provider configured yet.');
-	       } else {
-			logger.info(`Provider '${provider}' does not require an API key check on activation.`);
-		}
-	} catch (error) {
-		logger.error('Error checking API key on activation:', error);
-		// Don't block activation for this check
-	}
-	// --- End API Key Check ---
+  // Await this check
+  await checkApiKeyOnActivation(context);
 
-	// Register command to show the panel
-	const showPanelDisposable = vscode.commands.registerCommand(COMMAND_SHOW_PANEL, () => {
-		logger.info(`Command executed: ${COMMAND_SHOW_PANEL}`);
-		panelManager?.showPanel(); // Use optional chaining
-	});
+  // Register commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMAND_SHOW_PANEL, () => {
+      logger.info(`Command executed: ${COMMAND_SHOW_PANEL}`);
+      panelManager?.showPanel(); // Call directly
+    }),
+    vscode.commands.registerCommand(
+      COMMAND_SET_API_KEY,
+      () =>
+        // Use void for the handler as its promise isn't awaited here
+        void handleSetApiKeyCommand(context), // Defined above
+    ),
+  );
+  logger.info("Apex Coder commands registered.");
 
-	// Register command to set the API key
-	const setApiKeyDisposable = vscode.commands.registerCommand(COMMAND_SET_API_KEY, async () => {
-		logger.info(`Command executed: ${COMMAND_SET_API_KEY}`);
-		try {
-			// Get all providers from ProviderService
-			const allProviders = await ProviderService.getAllProviders();
-			
-			// Format providers for QuickPick
-			const providerQuickPickItems = allProviders.map(provider => ({
-				label: provider.name,
-				detail: `${provider.requiresApiKey ? 'Requires API key' : 'No API key needed'}`,
-				value: provider.id
-			}));
-			
-			// Show provider selection dropdown
-			const provider = await vscode.window.showQuickPick(providerQuickPickItems, {
-				placeHolder: 'Select AI Provider',
-				ignoreFocusOut: true,
-			});
+  // Automatically show panel on startup
+  // Use void to explicitly ignore the promise
+  void panelManager.showPanel();
+  logger.info("Automatically triggered showPanel on startup.");
 
-			if (!provider) {
-				vscode.window.showWarningMessage('API Key setup cancelled: No provider selected.');
-				return;
-			}
-
-			const providerLower = provider.value.toLowerCase();
-
-			// Show model selection dropdown if not Ollama
-			if (providerLower !== 'ollama') {
-				const models = {
-					googleai: [
-						{ label: 'Gemini 1.5 Flash (Default)', value: 'gemini-1.5-flash', detail: 'Fastest model for most tasks' },
-						{ label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro', detail: 'Most capable model for complex tasks' },
-						{ label: 'Gemini 1.0 Pro', value: 'gemini-pro', detail: 'General purpose model' }
-					],
-					openai: [
-						{ label: 'GPT-4o (Default)', value: 'gpt-4o', detail: 'Fastest and most capable model' },
-						{ label: 'GPT-4 Turbo', value: 'gpt-4-turbo', detail: 'Improved version of GPT-4' },
-						{ label: 'GPT-4', value: 'gpt-4', detail: 'Most capable model' },
-						{ label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo', detail: 'Fast and cost-effective' }
-					],
-					anthropic: [
-						{ label: 'Claude 3.5 Sonnet (Default)', value: 'claude-3-5-sonnet', detail: 'Balanced intelligence and speed' },
-						{ label: 'Claude 3 Opus', value: 'claude-3-opus-20240229', detail: 'Most powerful model' },
-						{ label: 'Claude 3 Sonnet', value: 'claude-3-sonnet-20240229', detail: 'Balanced performance' },
-						{ label: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307', detail: 'Fastest and most compact' }
-					],
-					deepseek: [
-						{ label: 'Deepseek Chat (Default)', value: 'deepseek-chat', detail: 'General purpose model' }
-					]
-				};
-
-				const model = await vscode.window.showQuickPick(models[providerLower as keyof typeof models], {
-					placeHolder: `Select ${provider.label} Model`,
-					ignoreFocusOut: true
-				});
-
-				if (!model) {
-					vscode.window.showWarningMessage('Model selection cancelled');
-					return;
-				}
-
-				// Update model configuration
-				const config = vscode.workspace.getConfiguration('apexCoder.ai');
-				await config.update('model', model.value, vscode.ConfigurationTarget.Global);
-			}
-			
-			// No API key needed for Ollama
-			if (providerLower === 'ollama') {
-				vscode.window.showInformationMessage('Ollama provider selected. Ensure Ollama service is running. No API key needed.');
-				const config = vscode.workspace.getConfiguration('apexCoder.ai');
-				await config.update('provider', provider.value, vscode.ConfigurationTarget.Global);
-				await context.secrets.delete(`${SECRET_API_KEY_PREFIX}${providerLower}`);
-				panelManager?.showPanel();
-				return;
-			}
-
-			// Get API key with validation
-			const apiKey = await vscode.window.showInputBox({
-				prompt: `Enter API Key for ${provider.label}`,
-				password: true,
-				ignoreFocusOut: true,
-				validateInput: (value) => {
-					if (!value) {
-						return 'API Key is required';
-					}
-					// Basic format validation based on provider
-					switch(providerLower) {
-						case 'openai':
-							if (!value.startsWith('sk-')) {
-								return 'OpenAI keys typically start with "sk-"';
-							}
-							break;
-						case 'anthropic':
-							if (!value.startsWith('sk-ant-')) {
-								return 'Anthropic keys typically start with "sk-ant-"';
-							}
-							break;
-						case 'googleai':
-							if (value.length < 30) {
-								return 'Google AI keys are typically longer than 30 characters';
-							}
-							break;
-					}
-					return null;
-				}
-			});
-
-			if (!apiKey) {
-				vscode.window.showWarningMessage(`API Key setup cancelled: API Key for ${provider.label} not entered.`);
-				return;
-			}
-
-			// Store the key
-			const secretKey = `${SECRET_API_KEY_PREFIX}${providerLower}`;
-			await context.secrets.store(secretKey, apiKey);
-			vscode.window.showInformationMessage(`API Key for ${provider.label} stored successfully.`);
-			logger.info(`API Key stored for provider: ${provider.value}`);
-
-			// Update provider setting if changed
-			const config = vscode.workspace.getConfiguration('apexCoder.ai');
-			if (config.get<string>('provider') !== provider.value) {
-				await config.update('provider', provider.value, vscode.ConfigurationTarget.Global);
-			}
-
-			// Test the connection
-			const testResult = await vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				title: `Testing ${provider.label} connection...`,
-				cancellable: false
-			}, async () => {
-				try {
-					// Import configLoader only when needed
-					const { initializeAiSdkModel } = await import('./ai-sdk/configLoader.js');
-					// Get the model ID from the config if available
-					const config = vscode.workspace.getConfiguration('apexCoder.ai');
-					const modelId = config.get<string>('model');
-					
-					await initializeAiSdkModel({
-						provider: provider.value,
-						modelId: modelId,
-						credentials: {
-							apiKey: apiKey
-						}
-					});
-					return true;
-				} catch (error) {
-					logger.error('Connection test failed:', error);
-					return false;
-				}
-			});
-
-			if (testResult) {
-				vscode.window.showInformationMessage(`Successfully connected to ${provider.label}!`);
-			} else {
-				vscode.window.showWarningMessage(`Failed to connect to ${provider.label}. The key may be invalid.`);
-			}
-
-			// Refresh panel
-			panelManager?.showPanel();
-
-		} catch (error: unknown) {
-			const errorMsg = `Failed to store API Key: ${error instanceof Error ? error.message : String(error)}`;
-			logger.error('Error setting API key:', error);
-			vscode.window.showErrorMessage(errorMsg);
-		}
-	});
-
-	context.subscriptions.push(showPanelDisposable, setApiKeyDisposable);
-
-	logger.info('Apex Coder commands registered.');
-
-	// Automatically show panel on startup (as defined in activationEvents)
-	// Ensure panelManager is initialized before calling showPanel
-	if (panelManager) {
-		await panelManager.showPanel();
-		logger.info('Automatically triggered showPanel on startup.');
-	} else {
-		logger.error('PanelManager failed to initialize during activation.');
-	}
-
-	logger.info('Apex Coder activation finished.');
+  logger.info("Apex Coder activation finished.");
 }
 
 /**
  * Deactivates the extension.
- * Called when the extension is deactivated.
  */
 export function deactivate(): void {
-    logger.info('Deactivating Apex Coder...');
-    // Cleanup resources if needed (e.g., close connections, dispose objects)
-    // Panel disposal is handled by its onDidDispose listener in PanelManager
+  logger.info("Deactivating Apex Coder...");
+  panelManager = undefined;
 }

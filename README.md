@@ -42,6 +42,7 @@ The project is configured to make development easy using VS Code's built-in feat
    - This will open a new VS Code window with the extension loaded
    - In the new window, use the Command Palette (`Ctrl+Shift+P`) and run "Apex Coder: Show Panel"
 2. **Launch Configurations**:
+
    - `Run Extension`: Basic extension debugging with automatic panel opening
    - `Run Extension with UI Dev Server`: Runs both the extension and UI development server
    - `Full Development Environment`: Complete development setup
@@ -58,10 +59,12 @@ The recommended way to develop this extension is using VS Code's built-in debugg
 
 1. **Open the project in VS Code**
 2. **Choose a launch configuration**:
+
    - `Run Extension`: For basic extension debugging
    - `Run Extension with UI Dev Server`: For full-stack development with hot-reloading UI
 
 3. **Press F5** to start debugging
+
    - This will start the appropriate tasks and launch a new VS Code window with the extension
    - The extension panel will automatically open in the new window
 
@@ -93,6 +96,7 @@ pnpm package
 ```
 
 This will create a VSIX file that can be installed in VS Code.
+
 # apex-coder README
 
 This is the README for your extension "apex-coder". After writing up a brief description, we recommend including the following sections.
@@ -119,8 +123,8 @@ For example:
 
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- `myExtension.enable`: Enable/disable this extension.
+- `myExtension.thing`: Set to `blah` to do something.
 
 ## Known Issues
 
@@ -148,19 +152,19 @@ Added features X, Y, and Z.
 
 Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+- [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
 
 ## Working with Markdown
 
 You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+- Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
+- Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
+- Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
 
 ## For more information
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+- [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
+- [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 **Enjoy!**

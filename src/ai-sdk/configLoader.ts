@@ -1,12 +1,12 @@
-import type { LanguageModel } from 'ai';
-import { logger } from '../utils/logger';
-import { getProvider, getAllProviders } from './providers';
+import type { LanguageModel } from "ai";
+import { logger } from "../utils/logger";
+import { getProvider, getAllProviders } from "./providers";
 
 // Define the expected configuration structure
 export interface AiConfig {
-    provider: string;
-    modelId?: string;
-    credentials: Record<string, any>;
+  provider: string;
+  modelId?: string;
+  credentials: Record<string, unknown>;
 }
 
 // Store the initialized model instance and config
@@ -21,39 +21,54 @@ const modelCache: Record<string, string[]> = {};
  * @param config The AI configuration
  */
 export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
-    const providerLower = config.provider.toLowerCase();
-    const modelId = config.modelId || '';
-    
-    logger.info(`Initializing AI SDK for provider: ${providerLower} with model: ${modelId}`);
-    
-    // Reset current state
+  const providerLower = config.provider.toLowerCase();
+  const modelId = config.modelId ?? "";
+
+  logger.info(
+    `Initializing AI SDK for provider: ${providerLower} with model: ${modelId}`,
+  );
+
+  // Reset current state
+  languageModelInstance = null;
+  currentConfig = config;
+
+  // Check if model ID is provided
+  if (!modelId) {
+    logger.warn(
+      `No model ID specified for provider: ${providerLower}. User will need to select a model.`,
+    );
+    return;
+  }
+
+  try {
+    // Get the provider
+    const provider = getProvider(providerLower);
+    if (!provider) {
+      throw new Error(`Unsupported AI provider: ${providerLower}`);
+    }
+
+    // Create the model
+    languageModelInstance = await provider.createModel(
+      modelId,
+      config.credentials,
+    );
+
+    logger.info(
+      `AI SDK Model initialized successfully: ${providerLower}/${modelId}`,
+    );
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(
+      `Failed to initialize AI SDK Model for provider ${providerLower}:`,
+      errorMessage,
+      error,
+    );
     languageModelInstance = null;
-    currentConfig = config;
-    
-    // Check if model ID is provided
-    if (!modelId) {
-        logger.warn(`No model ID specified for provider: ${providerLower}. User will need to select a model.`);
-        return;
-    }
-    
-    try {
-        // Get the provider
-        const provider = getProvider(providerLower);
-        if (!provider) {
-            throw new Error(`Unsupported AI provider: ${providerLower}`);
-        }
-        
-        // Create the model
-        languageModelInstance = await provider.createModel(modelId, config.credentials);
-        
-        logger.info(`AI SDK Model initialized successfully: ${providerLower}/${modelId}`);
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to initialize AI SDK Model for provider ${providerLower}:`, errorMessage, error);
-        languageModelInstance = null;
-        // Re-throw a more specific error or the original one
-        throw new Error(`AI SDK Model initialization failed for ${providerLower}: ${errorMessage}`);
-    }
+    // Re-throw a more specific error or the original one
+    throw new Error(
+      `AI SDK Model initialization failed for ${providerLower}: ${errorMessage}`,
+    );
+  }
 }
 
 /**
@@ -62,10 +77,12 @@ export async function initializeAiSdkModel(config: AiConfig): Promise<void> {
  * @throws Error if the model is not initialized
  */
 export function getLanguageModel(): LanguageModel {
-    if (!languageModelInstance) {
-        throw new Error('AI SDK Model has not been initialized. Call initializeAiSdkModel first.');
-    }
-    return languageModelInstance;
+  if (!languageModelInstance) {
+    throw new Error(
+      "AI SDK Model has not been initialized. Call initializeAiSdkModel first.",
+    );
+  }
+  return languageModelInstance;
 }
 
 /**
@@ -73,16 +90,16 @@ export function getLanguageModel(): LanguageModel {
  * @returns The current AI configuration or null if not initialized
  */
 export function getCurrentAiConfig(): AiConfig | null {
-    return currentConfig;
+  return currentConfig;
 }
 
 /**
  * Reset the AI SDK model and configuration
  */
 export function resetAiSdkModel(): void {
-    logger.info('Resetting AI SDK Model and configuration.');
-    languageModelInstance = null;
-    currentConfig = null;
+  logger.info("Resetting AI SDK Model and configuration.");
+  languageModelInstance = null;
+  currentConfig = null;
 }
 
 /**
@@ -93,47 +110,51 @@ export function resetAiSdkModel(): void {
  * @returns Array of available model IDs
  */
 export async function getModelsForProvider(
-    providerId: string, 
-    credentials?: Record<string, any>,
-    forceRefresh = false
+  providerId: string,
+  credentials?: Record<string, unknown>,
+  forceRefresh = false,
 ): Promise<string[]> {
-    const providerLower = providerId.toLowerCase();
-    
-    // Return cached models if available and not forcing refresh
-    if (!forceRefresh && modelCache[providerLower]) {
-        return modelCache[providerLower];
+  const providerLower = providerId.toLowerCase();
+
+  // Return cached models if available and not forcing refresh
+  if (!forceRefresh && modelCache[providerLower]) {
+    return modelCache[providerLower];
+  }
+
+  try {
+    // Get the provider
+    const provider = getProvider(providerLower);
+    if (!provider) {
+      throw new Error(`Unsupported AI provider: ${providerLower}`);
     }
-    
-    try {
-        // Get the provider
-        const provider = getProvider(providerLower);
-        if (!provider) {
-            throw new Error(`Unsupported AI provider: ${providerLower}`);
-        }
-        
-        // Get available models
-        const models = await provider.getAvailableModels(credentials);
-        
-        // Cache the models
-        modelCache[providerLower] = models;
-        
-        return models;
-    } catch (error) {
-        logger.error(`Failed to get models for provider ${providerLower}:`, error);
-        return [];
-    }
+
+    // Get available models
+    const models = await provider.getAvailableModels(credentials);
+
+    // Cache the models
+    modelCache[providerLower] = models;
+
+    return models;
+  } catch (error: unknown) {
+    logger.error(`Failed to get models for provider ${providerLower}:`, error);
+    return [];
+  }
 }
 
 /**
  * Get information about all supported providers
  * @returns Array of provider information
  */
-export function getSupportedProviders(): { id: string; name: string; requiredCredentials: string[] }[] {
-    return getAllProviders().map(provider => ({
-        id: provider.getName().toLowerCase(),
-        name: provider.getName(),
-        requiredCredentials: provider.getRequiredCredentialFields()
-    }));
+export function getSupportedProviders(): {
+  id: string;
+  name: string;
+  requiredCredentials: string[];
+}[] {
+  return getAllProviders().map((provider) => ({
+    id: provider.getName().toLowerCase(),
+    name: provider.getName(),
+    requiredCredentials: provider.getRequiredCredentialFields(),
+  }));
 }
 
 /**
@@ -143,18 +164,21 @@ export function getSupportedProviders(): { id: string; name: string; requiredCre
  * @returns Whether the credentials are valid
  */
 export async function validateProviderCredentials(
-    providerId: string,
-    credentials: Record<string, any>
+  providerId: string,
+  credentials: Record<string, unknown>,
 ): Promise<boolean> {
-    try {
-        const provider = getProvider(providerId.toLowerCase());
-        if (!provider) {
-            throw new Error(`Unsupported AI provider: ${providerId}`);
-        }
-        
-        return await provider.validateCredentials(credentials);
-    } catch (error) {
-        logger.error(`Failed to validate credentials for provider ${providerId}:`, error);
-        return false;
+  try {
+    const provider = getProvider(providerId.toLowerCase());
+    if (!provider) {
+      throw new Error(`Unsupported AI provider: ${providerId}`);
     }
+
+    return await provider.validateCredentials(credentials);
+  } catch (error: unknown) {
+    logger.error(
+      `Failed to validate credentials for provider ${providerId}:`,
+      error,
+    );
+    return false;
+  }
 }

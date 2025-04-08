@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import ChatMessageItem from './ChatMessageItem.vue'; // Import the item component
+import ChatMessageItem from "./ChatMessageItem.vue"; // Import the item component
 
 const props = defineProps<{
   messages: Array<any>; // Array of message objects
 }>();
 
 const emit = defineEmits<{
-  (e: 'openImage', src: string): void; // Pass event up to ChatView
+  (e: "openImage", src: string): void; // Pass event up to ChatView
 }>();
 
 const handleOpenImage = (src: string) => {
-  emit('openImage', src);
+  emit("openImage", src);
 };
 </script>
 
@@ -37,10 +37,10 @@ const handleOpenImage = (src: string) => {
   transition: all 0.3s ease-out;
 }
 .message-transition-leave-active {
- position: absolute; /* Important for smooth list animations */
- /* Calculate width based on parent padding if needed, or use 100% */
- width: calc(100% - 1.5rem); /* Assuming parent has px-3 */
- /* Or potentially: width: 100%; */
+  position: absolute; /* Important for smooth list animations */
+  /* Calculate width based on parent padding if needed, or use 100% */
+  width: calc(100% - 1.5rem); /* Assuming parent has px-3 */
+  /* Or potentially: width: 100%; */
 }
 
 .message-transition-enter-from {
@@ -58,4 +58,4 @@ const handleOpenImage = (src: string) => {
 .message-transition-leave-to {
   opacity: 0;
 }
-</style> 
+</style>
