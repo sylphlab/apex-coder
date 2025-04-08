@@ -1,4 +1,4 @@
-<!-- Version: 1.32 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
+<!-- Version: 1.33 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
 
 # Progress: Apex Coder
 
@@ -90,7 +90,8 @@
   - Created `configStore.ts` to manage configuration state.
   - Refactored `App.vue`, `SetupView.vue`, and `ChatView.vue` to use the Pinia store, removing props/emits for config state.
   - Fixed duplicate attribute error in `ChatView.vue` after refactoring.
-- **Current Task:** Refine secure API key handling (e.g., prompt user on activation if key missing).
+- **Completed:** Refined secure API key handling: Added a warning message with a 'Set API Key' action button on activation if a required key is missing (`src/extension.ts`).
+- **Next Task:** Implement further core AI features (tool use, object generation, etc.).
 - Implement further core AI features (tool use, object generation, etc.).
 - Testing, optimization, packaging.
 

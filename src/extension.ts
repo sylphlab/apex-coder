@@ -28,11 +28,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			if (!apiKey) {
 				// Skip warning for deepseek to avoid annoying the user
 				if (providerLower !== 'deepseek') {
-					logger.warn(`API Key for provider '${provider}' not found in secrets.`);
+					logger.warn(`API Key for provider '${provider}' not found in secrets. Prompting user.`);
+					const setupAction = 'Set API Key';
+					vscode.window.showWarningMessage(
+						`API Key for the configured provider '${provider}' is missing.`,
+						setupAction
+					).then(selection => {
+						if (selection === setupAction) {
+							vscode.commands.executeCommand(COMMAND_SET_API_KEY);
+						}
+					});
 				}
-				// Don't automatically prompt for API key, let the user click the button in the welcome page
-				// Optionally show a non-blocking message
-				// vscode.window.showInformationMessage(`API Key for ${provider} is missing. Please set it up.`);
+				// No automatic prompt needed here anymore as the warning message handles it.
 			} else {
 				logger.info(`API Key found for provider '${provider}'.`);
 			}

@@ -1,4 +1,4 @@
-<!-- Version: 1.31 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
+<!-- Version: 1.33 | Last Updated: 2025-07-08 --> <!-- Updated Version -->
 
 # Active Context: Apex Coder
 
@@ -64,7 +64,10 @@
     *   Updated related files (`extension.ts`, `panelManager.ts`, tests) to work with the new architecture.
 26. **Completed:** Provider-first architecture implemented.
 27. **Implemented (Frontend):** Migrated WebView UI state management (for configuration) from props/emits to Pinia (`configStore.ts`). Refactored `App.vue`, `SetupView.vue`, and `ChatView.vue` to use the store. This resolves the provider selection issue reported by the user.
-28. **Next Step:** Refine secure API key handling. Analyze `extension.ts` for current logic and plan improvements (e.g., prompt on activation if key missing for required provider).
+28. **Paused Task:** Fixing errors in `minimal-react-app/src/main.jsx` is paused pending the addition of `.roo/system-prompt-code`.
+29. **Current Task:** Refine secure API key handling.
+    *   **Analysis:** Reviewed `src/extension.ts`. Current logic checks for missing keys on activation but only logs a warning. `setApiKey` command handles setup.
+    *   **Plan:** Modify activation logic in `src/extension.ts` to show a `showWarningMessage` with an action button to trigger `COMMAND_SET_API_KEY` if a required key is missing.
 
 **Decisions Made:**
 - Project Name: Apex Coder
