@@ -4,8 +4,7 @@ import * as path from 'path';
 import { logger } from '../utils/logger';
 
 // --- Development Flag & Settings ---
-// Force production mode to ensure the welcome page is visible
-const IS_DEVELOPMENT = false;
+// Development Flag & Settings --- (Removed IS_DEVELOPMENT constant)
 const DEV_SERVER_URL = 'http://127.0.0.1:5173'; // Still needed for compilation
 
 /**
@@ -15,10 +14,11 @@ const DEV_SERVER_URL = 'http://127.0.0.1:5173'; // Still needed for compilation
  * @param extensionUri The extension's root URI.
  * @returns The HTML string for the webview.
  */
-export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, extensionMode: vscode.ExtensionMode): string {
     const nonce = getNonce();
+    const isDevelopment = extensionMode === vscode.ExtensionMode.Development;
 
-    if (IS_DEVELOPMENT) {
+    if (isDevelopment) {
         logger.info('Generating webview content for DEVELOPMENT (Vite dev server)...');
         // In development, we need to allow connections to the Vite dev server
         // Note: Looser CSP for development convenience.

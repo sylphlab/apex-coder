@@ -49,11 +49,13 @@ export class PanelManager {
     private static currentPanel: vscode.WebviewPanel | undefined;
     private readonly extensionUri: vscode.Uri;
     private readonly context: vscode.ExtensionContext;
+    private readonly extensionMode: vscode.ExtensionMode; // Store the mode
     private isModelInitialized: boolean = false;
 
-    constructor(context: vscode.ExtensionContext) {
+    constructor(context: vscode.ExtensionContext, extensionMode: vscode.ExtensionMode) { // Add extensionMode parameter
         this.extensionUri = context.extensionUri;
         this.context = context;
+        this.extensionMode = extensionMode; // Assign it
     }
 
     /**
@@ -85,7 +87,7 @@ export class PanelManager {
         );
         logger.info('Created new panel.');
 
-        PanelManager.currentPanel.webview.html = getWebviewContent(PanelManager.currentPanel.webview, this.extensionUri);
+        PanelManager.currentPanel.webview.html = getWebviewContent(PanelManager.currentPanel.webview, this.extensionUri, this.extensionMode); // Pass extensionMode here
         logger.info('Set panel HTML content.');
 
         // Set up message listener

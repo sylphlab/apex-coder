@@ -55,29 +55,6 @@ const filteredProviders = computed(() => {
   );
 });
 
-// Group providers by category
-const groupedProviders = computed(() => {
-  const groups: Record<string, ProviderDetails[]> = {
-    core: [],
-    cloud: [],
-    enterprise: [],
-    community: []
-  };
-  
-  filteredProviders.value.forEach(provider => {
-    // Extract category from provider info
-    // Default to 'core' if not specified
-    const category = provider.category || 'core';
-    if (groups[category]) {
-      groups[category].push(provider);
-    } else {
-      groups.core.push(provider);
-    }
-  });
-  
-  return groups;
-});
-
 // Check if a provider is configured and working
 const isProviderConfigured = (providerId: string) => {
   return props.configuredProvider === providerId && props.isModelInitialized;
@@ -204,7 +181,7 @@ onMounted(() => {
       </div>
       
       <!-- Empty state when search has no results -->
-      <div v-else-if="Object.values(groupedProviders).every(group => group.length === 0)" class="flex flex-col items-center justify-center h-full text-nordic-text-muted">
+      <div v-else-if="filteredProviders.length === 0" class="flex flex-col items-center justify-center h-full text-nordic-text-muted">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 text-nordic-text-muted opacity-50" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
         </svg>
@@ -212,173 +189,19 @@ onMounted(() => {
         <p class="text-xs max-w-md text-center">Try a different search term</p>
       </div>
       
-      <!-- Provider groups -->
+      <!-- Provider List -->
       <template v-else>
-        <!-- Core providers -->
-        <div v-if="groupedProviders.core.length > 0" class="mb-8">
-          <h2 class="text-sm font-medium text-nordic-text-primary mb-3 flex items-center">
-            <span class="inline-block w-2 h-2 rounded-full bg-nordic-primary mr-2"></span>
-            Core Providers
-          </h2>
+        <!-- Removed grouping headers and loops -->
+        <div class="mb-8">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
-              v-for="provider in groupedProviders.core"
+              v-for="provider in filteredProviders"
               :key="provider.id"
               class="card-nordic flex items-center justify-between p-4 hover:shadow-nordic-md"
             >
               <div class="flex items-center">
                 <div class="w-10 h-10 rounded-full bg-nordic-bg-light flex items-center justify-center mr-3">
                   <span class="text-sm font-medium text-nordic-primary">{{ provider.name.charAt(0) }}</span>
-                </div>
-                <div>
-                  <h3 class="text-sm font-medium text-nordic-text-primary">{{ provider.name }}</h3>
-                  <p class="text-xs text-nordic-text-muted">{{ provider.id }}</p>
-                </div>
-              </div>
-              <div class="flex items-center">
-                <!-- Status indicator -->
-                <div v-if="isProviderConfigured(provider.id)" class="mr-3 w-6 h-6 rounded-full bg-nordic-success bg-opacity-20 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-success" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div v-else-if="isProviderError(provider.id)" class="mr-3 w-6 h-6 rounded-full bg-nordic-error bg-opacity-20 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-error" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div v-else class="mr-3 w-6 h-6 rounded-full bg-nordic-bg flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-text-muted" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <!-- Configure button -->
-                <button
-                  @click="configureProvider(provider.id)"
-                  class="btn-nordic-ghost text-xs px-2.5 py-1.5"
-                >
-                  Configure
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Cloud providers -->
-        <div v-if="groupedProviders.cloud.length > 0" class="mb-8">
-          <h2 class="text-sm font-medium text-nordic-text-primary mb-3 flex items-center">
-            <span class="inline-block w-2 h-2 rounded-full bg-nordic-accent mr-2"></span>
-            Cloud Providers
-          </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              v-for="provider in groupedProviders.cloud"
-              :key="provider.id"
-              class="card-nordic flex items-center justify-between p-4 hover:shadow-nordic-md"
-            >
-              <div class="flex items-center">
-                <div class="w-10 h-10 rounded-full bg-nordic-bg-light flex items-center justify-center mr-3">
-                  <span class="text-sm font-medium text-nordic-accent">{{ provider.name.charAt(0) }}</span>
-                </div>
-                <div>
-                  <h3 class="text-sm font-medium text-nordic-text-primary">{{ provider.name }}</h3>
-                  <p class="text-xs text-nordic-text-muted">{{ provider.id }}</p>
-                </div>
-              </div>
-              <div class="flex items-center">
-                <!-- Status indicator -->
-                <div v-if="isProviderConfigured(provider.id)" class="mr-3 w-6 h-6 rounded-full bg-nordic-success bg-opacity-20 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-success" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div v-else-if="isProviderError(provider.id)" class="mr-3 w-6 h-6 rounded-full bg-nordic-error bg-opacity-20 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-error" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div v-else class="mr-3 w-6 h-6 rounded-full bg-nordic-bg flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-text-muted" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <!-- Configure button -->
-                <button
-                  @click="configureProvider(provider.id)"
-                  class="btn-nordic-ghost text-xs px-2.5 py-1.5"
-                >
-                  Configure
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Enterprise providers -->
-        <div v-if="groupedProviders.enterprise.length > 0" class="mb-8">
-          <h2 class="text-sm font-medium text-nordic-text-primary mb-3 flex items-center">
-            <span class="inline-block w-2 h-2 rounded-full bg-nordic-info mr-2"></span>
-            Enterprise Providers
-          </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              v-for="provider in groupedProviders.enterprise"
-              :key="provider.id"
-              class="card-nordic flex items-center justify-between p-4 hover:shadow-nordic-md"
-            >
-              <div class="flex items-center">
-                <div class="w-10 h-10 rounded-full bg-nordic-bg-light flex items-center justify-center mr-3">
-                  <span class="text-sm font-medium text-nordic-info">{{ provider.name.charAt(0) }}</span>
-                </div>
-                <div>
-                  <h3 class="text-sm font-medium text-nordic-text-primary">{{ provider.name }}</h3>
-                  <p class="text-xs text-nordic-text-muted">{{ provider.id }}</p>
-                </div>
-              </div>
-              <div class="flex items-center">
-                <!-- Status indicator -->
-                <div v-if="isProviderConfigured(provider.id)" class="mr-3 w-6 h-6 rounded-full bg-nordic-success bg-opacity-20 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-success" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div v-else-if="isProviderError(provider.id)" class="mr-3 w-6 h-6 rounded-full bg-nordic-error bg-opacity-20 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-error" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div v-else class="mr-3 w-6 h-6 rounded-full bg-nordic-bg flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-nordic-text-muted" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <!-- Configure button -->
-                <button
-                  @click="configureProvider(provider.id)"
-                  class="btn-nordic-ghost text-xs px-2.5 py-1.5"
-                >
-                  Configure
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Community providers -->
-        <div v-if="groupedProviders.community.length > 0" class="mb-8">
-          <h2 class="text-sm font-medium text-nordic-text-primary mb-3 flex items-center">
-            <span class="inline-block w-2 h-2 rounded-full bg-nordic-success mr-2"></span>
-            Community Providers
-          </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              v-for="provider in groupedProviders.community"
-              :key="provider.id"
-              class="card-nordic flex items-center justify-between p-4 hover:shadow-nordic-md"
-            >
-              <div class="flex items-center">
-                <div class="w-10 h-10 rounded-full bg-nordic-bg-light flex items-center justify-center mr-3">
-                  <span class="text-sm font-medium text-nordic-success">{{ provider.name.charAt(0) }}</span>
                 </div>
                 <div>
                   <h3 class="text-sm font-medium text-nordic-text-primary">{{ provider.name }}</h3>

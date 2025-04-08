@@ -48,7 +48,7 @@ export const useConfigStore = defineStore('config', () => {
       providers.value = await ProviderService.getAllProviders();
     } catch (error) {
       loadingError.value = error instanceof Error ? error.message : 'Failed to load providers';
-      console.error('Error loading providers:', error);
+      console.error('[configStore] Error loading providers during initial fetch:', error); // More specific log
       providers.value = []; // Clear providers on error
     } finally {
       isLoadingProviders.value = false;

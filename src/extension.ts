@@ -15,7 +15,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	logger.info('Activating Apex Coder extension...');
 
 	// Initialize the Panel Manager
-	panelManager = new PanelManager(context);
+	panelManager = new PanelManager(context, context.extensionMode); // Pass extensionMode here
 
 	// --- Check for missing API Key on activation ---
 	try {
