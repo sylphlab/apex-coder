@@ -5,6 +5,7 @@
 **Goal:** Create a VSCode extension named "Apex Coder" that provides a comprehensive, AI-powered coding assistance experience similar to Cursor.
 
 **Core Requirements:**
+
 - Feature-rich AI assistance (chat, code generation, refactoring, editing, etc.).
 - Support for multiple programming languages.
 - High performance and lightweight resource usage.

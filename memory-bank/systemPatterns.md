@@ -29,6 +29,7 @@ graph LR
 ```
 
 **Key Patterns:**
+
 - **WebView UI:** Using VSCode WebView to host the Vue.js frontend, enabling rich UI capabilities.
 - **Message Passing:** Relying on VSCode's `postMessage` API for communication between the WebView and the Extension Host.
 - **Backend Abstraction:** Extension Host acts as a bridge and orchestrator between the frontend, VSCode API, and the Genkit backend.

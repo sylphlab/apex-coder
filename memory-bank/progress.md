@@ -5,6 +5,7 @@
 **Overall Status:** Foundational structure complete. Vercel AI SDK integrated. UI refactored to use UnoCSS. Auto-panel display implemented. **UnoCSS styling issues resolved.** Webview-driven setup flow implemented. **Fixed development workflow and UI issues.** **Provider-first architecture implemented.**
 
 **Completed Milestones:**
+
 - Initial requirements gathering and planning.
 - Definition of MVP scope.
 - High-level architecture design.
@@ -18,31 +19,32 @@
 - Resolved command registration issues (`command not found` error).
 - Resolved configuration registration issue (`CodeExpectedError`).
 - **Switched UI styling to UnoCSS:**
-    - Installed dependencies (including `@unocss/reset`).
-    - Configured UnoCSS (`uno.config.ts`).
-    - Integrated with Vite and Vue (`vite.config.ts`, `main.ts`).
-    - Removed old CSS files.
-    - Rewrote `App.vue` template with UnoCSS utilities.
-    - Fixed import errors in `main.ts`.
+  - Installed dependencies (including `@unocss/reset`).
+  - Configured UnoCSS (`uno.config.ts`).
+  - Integrated with Vite and Vue (`vite.config.ts`, `main.ts`).
+  - Removed old CSS files.
+  - Rewrote `App.vue` template with UnoCSS utilities.
+  - Fixed import errors in `main.ts`.
 - **Implemented Auto-Panel Display:**
-    - Added `onStartupFinished` activation event.
-    - Added logic to execute `showPanel` command in `activate` function.
+  - Added `onStartupFinished` activation event.
+  - Added logic to execute `showPanel` command in `activate` function.
 - **Fixed UnoCSS Styling:** Styles now render correctly in both browser and WebView. (Root cause likely related to CSP/reset/config interactions, resolved through previous steps).
 - **UI Overhaul Progress:**
-    - Applied initial style adjustments (padding, title size) to `webview-ui/src/App.vue`.
-    - Applied Nordic-inspired styles to `webview-ui/src/views/SetupView.vue`.
-    - Applied Nordic-inspired styles to `webview-ui/src/views/ChatView.vue`.
-    - **Fix:** Corrected Vue template syntax errors in `ChatView.vue` caused by `apply_diff` comments.
+  - Applied initial style adjustments (padding, title size) to `webview-ui/src/App.vue`.
+  - Applied Nordic-inspired styles to `webview-ui/src/views/SetupView.vue`.
+  - Applied Nordic-inspired styles to `webview-ui/src/views/ChatView.vue`.
+  - **Fix:** Corrected Vue template syntax errors in `ChatView.vue` caused by `apply_diff` comments.
 - **Provider-First Architecture Implemented:**
-    - Created base provider interface (`BaseAIProvider`) and implementation classes for each provider.
-    - Implemented provider-specific files for Google AI, OpenAI, Anthropic, Ollama, Mistral, Azure, Cohere, and DeepSeek.
-    - Updated `configLoader.ts` to use the new provider architecture.
-    - Modified `AiConfig` interface to use a credentials object for provider-specific settings.
-    - Updated related files (`extension.ts`, `panelManager.ts`, tests) to work with the new architecture.
+  - Created base provider interface (`BaseAIProvider`) and implementation classes for each provider.
+  - Implemented provider-specific files for Google AI, OpenAI, Anthropic, Ollama, Mistral, Azure, Cohere, and DeepSeek.
+  - Updated `configLoader.ts` to use the new provider architecture.
+  - Modified `AiConfig` interface to use a credentials object for provider-specific settings.
+  - Updated related files (`extension.ts`, `panelManager.ts`, tests) to work with the new architecture.
 
 **Current Phase:** **Provider Architecture** - Completed provider-first design with separate files for each provider.
 
 **What Works:**
+
 - Basic Extension structure.
 - Basic WebView UI (styled with UnoCSS, working correctly).
 - Communication link between WebView and Extension Host.
@@ -55,6 +57,7 @@
 - WebView UI configuration state managed by Pinia (`configStore.ts`).
 
 **What's Left (High Level):**
+
 - **Implemented:** Added functional logic to `apex-coder.setApiKey` command.
 - **Implemented:** Updated `getWebviewContent` in `extension.ts` to load the built Vue.js frontend into the Webview panel.
 - **Refactored:** Modified `extension.ts` message handling to support Webview-driven configuration (`configStatus`, `saveConfiguration`). Removed auto-init on activation.
@@ -96,4 +99,5 @@
 - Testing, optimization, packaging.
 
 **Known Issues/Blockers:**
+
 - Activation fails in Cursor environment (use standard VS Code for development/debugging).

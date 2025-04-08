@@ -9,6 +9,7 @@
 **Target User:** Software developers using VSCode across various programming languages.
 
 **User Experience Goals:**
+
 - **Seamless Integration:** Feel like a natural extension of the VSCode environment.
 - **Intelligent Assistance:** Provide relevant and accurate AI suggestions/actions based on code context.
 - **Efficiency Boost:** Reduce time spent on boilerplate code, debugging, and understanding code.
