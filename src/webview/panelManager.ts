@@ -3,15 +3,27 @@ import { getWebviewContent } from "./contentProvider";
 import { logger } from "../utils/logger";
 import type { AiConfig } from "../ai-sdk/configLoader";
 import {
-  getCurrentAiConfig,
   getLanguageModel,
   initializeAiSdkModel,
   resetAiSdkModel,
 } from "../ai-sdk/configLoader";
-import { ProviderService } from "../ai-sdk/providerService";
+import {
+  getAllProviders,
+  getModelsForProviderDetails,
+} from "../ai-sdk/providerService";
 import type { Tool } from "ai";
 import { streamText, StreamTextResult as AISdkStreamTextResult } from "ai";
-import { createAllTools, ToolResultPayload } from "../tools/coreTools";
+import { createAllTools } from "../tools/coreTools";
+// Assuming assistantManager is correctly structured for import
+import {
+  getAssistantProfiles,
+  deleteAssistantProfile,
+  addAssistantProfile,
+  updateAssistantProfile,
+  getAssistantProfileById,
+} from "../assistantManager";
+// Import the type definition
+import type { AssistantProfile } from "../types/assistantProfile";
 // Corrected single import for constants
 import {
   CONFIG_NAMESPACE,
@@ -60,6 +72,9 @@ export class PanelManager {
   private readonly extensionMode: vscode.ExtensionMode;
   private readonly workspaceRootPath: string | undefined;
   private isModelInitialized = false;
+  // Add state for current session assistants
+  private currentAssistants: string[] = []; // Store assistant IDs or names
+  private currentSessionId: string | null = null; // Track current session (placeholder)
   private readonly messageHandlers: Record<
     string,
     (payload: unknown) => Promise<void> | void
@@ -90,6 +105,14 @@ export class PanelManager {
       getProviders: () => this.handleGetProviders(),
       getModelsForProvider: (payload) =>
         this.handleGetModelsForProvider(payload),
+      getAssistantProfiles: () => this.handleGetAssistantProfiles(),
+      deleteAssistantProfile: (payload) =>
+        this.handleDeleteAssistantProfile(payload),
+      addAssistantProfile: (payload) =>
+        this.handleAddAssistantProfile(payload),
+      updateAssistantProfile: (payload) =>
+        this.handleUpdateAssistantProfile(payload),
+      getAvailableTools: () => this.handleGetAvailableTools(),
     };
   }
 
@@ -171,46 +194,12 @@ export class PanelManager {
   }
 
   /**
-   * Handles messages received from the webview.
-   * @param message The message object from the webview.
-   */
-  private async handleMessage(message: WebviewMessage): Promise<void> {
-    logger.info(`Received message command: ${message.command}`);
-    switch (message.command) {
-      case "alert":
-        await this.sendConfigStatus();
-        return;
-      case "getConfigStatus":
-        await this.sendConfigStatus();
-        return;
-      case "saveConfiguration":
-        await this.handleSaveConfiguration(
-          message.payload as SaveConfigPayload,
-        );
-        return;
-      case "sendMessage":
-        await this.handleSendMessage(message.payload as SendMessagePayload);
-        return;
-      case "getProviders":
-        await this.handleGetProviders();
-        return;
-      case "getModelsForProvider":
-        await this.handleGetModelsForProvider(message.payload);
-        return;
-      default:
-        logger.warn(
-          `Received unknown command from webview: ${message.command}`,
-        );
-    }
-  }
-
-  /**
    * Handles request to get all available providers
    */
   private async handleGetProviders(): Promise<void> {
     logger.info("Handling getProviders command...");
     try {
-      const providers = await ProviderService.getAllProviders();
+      const providers = getAllProviders();
 
       // Add configuration status to each provider
       const config = vscode.workspace.getConfiguration(
@@ -288,14 +277,11 @@ export class PanelManager {
         }
       }
 
-      // Use the static method from ProviderService class
-      const models = await ProviderService.getModelsForProviderDetails(
-        providerId,
-        {
-          ...(config ?? {}),
-          baseUrl: baseUrl ?? (config?.baseUrl as string | undefined),
-        },
-      );
+      // Use the imported function directly
+      const models = await getModelsForProviderDetails(providerId, {
+        ...(config ?? {}),
+        baseUrl: baseUrl ?? (config?.baseUrl as string | undefined),
+      });
 
       PanelManager.currentPanel?.webview.postMessage({
         command: "modelsResult",
@@ -312,6 +298,170 @@ export class PanelManager {
       this.postErrorToWebview(
         `Failed to get models for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`,
         "getModelsForProvider",
+      );
+    }
+  }
+
+  /**
+   * Handles request to get all assistant profiles.
+   */
+  private async handleGetAssistantProfiles(): Promise<void> {
+    logger.info("Handling getAssistantProfiles command...");
+    try {
+      const profiles = getAssistantProfiles(); // Uses the function from assistantManager
+      PanelManager.currentPanel?.webview.postMessage({
+        command: "assistantProfilesList", // Command for the webview to listen to
+        payload: profiles,
+      });
+      logger.info(`Sent ${profiles.length} assistant profiles to webview`);
+    } catch (error) {
+      logger.error("Error getting assistant profiles:", error);
+      this.postErrorToWebview(
+        `Failed to get assistant profiles: ${error instanceof Error ? error.message : String(error)}`,
+        "getAssistantProfiles",
+      );
+    }
+  }
+
+  /**
+   * Handles request to delete an assistant profile.
+   * @param payload The payload containing the profile ID.
+   */
+  private async handleDeleteAssistantProfile(payload: unknown): Promise<void> {
+    let profileId: string | undefined;
+    if (typeof payload === "object" && payload !== null) {
+      profileId =
+        typeof (payload as { profileId?: unknown }).profileId === "string"
+          ? (payload as { profileId: string }).profileId
+          : undefined;
+    }
+
+    logger.info(
+      `Handling deleteAssistantProfile command for ID: ${profileId ?? "undefined"}`,
+    );
+
+    if (!profileId) {
+      this.postErrorToWebview("Profile ID is required for deletion");
+      return;
+    }
+
+    try {
+      const success = await deleteAssistantProfile(profileId);
+      PanelManager.currentPanel?.webview.postMessage({
+        command: "assistantProfileDeleted",
+        payload: { success, profileId }, // Send success status back
+      });
+      if (success) {
+        logger.info(`Deleted assistant profile ${profileId}`);
+        // Optionally refresh the list in the webview by sending the updated list
+        // await this.handleGetAssistantProfiles();
+      } else {
+        logger.warn(`Assistant profile ${profileId} not found for deletion.`);
+        // Error might have already been shown by deleteAssistantProfile
+      }
+    } catch (error) {
+      logger.error(`Error deleting assistant profile ${profileId}:`, error);
+      this.postErrorToWebview(
+        `Failed to delete profile ${profileId}: ${error instanceof Error ? error.message : String(error)}`,
+        "deleteAssistantProfile",
+      );
+    }
+  }
+
+  /**
+   * Handles request to add a new assistant profile.
+   * @param payload The payload containing the new profile data.
+   */
+  private async handleAddAssistantProfile(payload: unknown): Promise<void> {
+    logger.info("Handling addAssistantProfile command...");
+    // TODO: Add validation for the payload structure against AssistantProfile interface
+    // This requires importing AssistantProfile type
+    const newProfile = payload as any; // Use any temporarily, replace with AssistantProfile and validation
+    if (!newProfile || typeof newProfile !== 'object' || !newProfile.id || !newProfile.name) {
+        this.postErrorToWebview("Invalid profile data received for add.", "addAssistantProfile");
+        return;
+    }
+
+    try {
+      // Ensure correct type is passed if validation is added
+      await addAssistantProfile(newProfile);
+      logger.info(`Added assistant profile ${newProfile.id} - ${newProfile.name}`);
+      // Post success message or the updated list back to webview
+      PanelManager.currentPanel?.webview.postMessage({
+          command: "assistantProfileAdded",
+          payload: { success: true, profile: newProfile }
+      });
+      // Optionally refresh the full list
+      // await this.handleGetAssistantProfiles();
+    } catch (error) {
+      logger.error(`Error adding assistant profile ${newProfile.id}:`, error);
+      this.postErrorToWebview(
+        `Failed to add profile ${newProfile.name}: ${error instanceof Error ? error.message : String(error)}`,
+        "addAssistantProfile",
+      );
+    }
+  }
+
+  /**
+   * Handles request to update an existing assistant profile.
+   * @param payload The payload containing the updated profile data.
+   */
+  private async handleUpdateAssistantProfile(payload: unknown): Promise<void> {
+    logger.info("Handling updateAssistantProfile command...");
+    // TODO: Add validation for the payload structure against AssistantProfile interface
+    // This requires importing AssistantProfile type
+    const updatedProfile = payload as any; // Use any temporarily, replace with AssistantProfile and validation
+     if (!updatedProfile || typeof updatedProfile !== 'object' || !updatedProfile.id || !updatedProfile.name) {
+        this.postErrorToWebview("Invalid profile data received for update.", "updateAssistantProfile");
+        return;
+    }
+
+    try {
+      // Ensure correct type is passed if validation is added
+      const success = await updateAssistantProfile(updatedProfile);
+      logger.info(`Updated assistant profile ${updatedProfile.id} - ${updatedProfile.name}`);
+      PanelManager.currentPanel?.webview.postMessage({
+          command: "assistantProfileUpdated",
+          payload: { success: success, profile: updatedProfile }
+      });
+      if (!success) {
+         logger.warn(`Profile ${updatedProfile.id} not found for update.`);
+         // Maybe send specific feedback?
+      }
+      // Optionally refresh the full list
+      // await this.handleGetAssistantProfiles();
+    } catch (error) {
+      logger.error(`Error updating assistant profile ${updatedProfile.id}:`, error);
+      this.postErrorToWebview(
+        `Failed to update profile ${updatedProfile.name}: ${error instanceof Error ? error.message : String(error)}`,
+        "updateAssistantProfile",
+      );
+    }
+  }
+
+  /**
+   * Handles request to get the names of all available tools.
+   */
+  private handleGetAvailableTools(): void {
+    logger.info("Handling getAvailableTools command...");
+    try {
+      // We need the panel context to potentially create tools if not already done,
+      // but here we assume they might be accessible statically or pre-created.
+      // For simplicity, let's just get the keys from a dummy creation.
+      // A better approach might involve a dedicated ToolRegistry service.
+      const tools = createAllTools(undefined); // Pass undefined as panel might not be needed just for keys
+      const toolNames = Object.keys(tools);
+      
+      PanelManager.currentPanel?.webview.postMessage({
+        command: "availableToolsList",
+        payload: toolNames,
+      });
+      logger.info(`Sent ${toolNames.length} available tool names to webview.`);
+    } catch (error) {
+      logger.error("Error getting available tools:", error);
+      this.postErrorToWebview(
+        `Failed to get available tools: ${error instanceof Error ? error.message : String(error)}`,
+        "getAvailableTools",
       );
     }
   }
@@ -508,31 +658,73 @@ export class PanelManager {
   // --- End Save Config Helpers ---
 
   /**
-   * Handles sending a message to the AI model.
-   * Refactored slightly to reduce complexity, but still long.
+   * Handles processing a user message, potentially targeting an assistant.
+   * Currently implements basic target recognition and Vercel SDK streaming.
    */
   private async handleSendMessage(payload: SendMessagePayload): Promise<void> {
-    logger.info("Handling sendMessage command...");
-    if (!payload.text) {
-      logger.warn("Received empty message from webview.");
+    if (!this.isModelInitialized) {
+      this.postErrorToWebview(
+        "AI model is not initialized. Please check configuration.",
+      );
+      return;
+    }
+    const { id: streamId, text } = payload;
+    logger.info(`Handling sendMessage command for stream ${streamId}: "${text}"`);
+
+    // --- Basic Target Assistant Identification (Placeholder) ---
+    let targetAssistantId: string | null = null;
+    const mentionMatch = text.match(/^@([\w-]+):\s*/);
+    if (mentionMatch) {
+      const mentionedName = mentionMatch[1];
+      // TODO: Replace with actual lookup logic based on loaded profiles
+      if (this.currentAssistants.includes(mentionedName)) { 
+        targetAssistantId = mentionedName;
+        logger.info(`Message targets assistant: ${targetAssistantId}`);
+        // TODO: Remove the mention from the text passed to the model?
+        // text = text.substring(mentionMatch[0].length);
+      } else {
+         logger.warn(`Mentioned assistant '${mentionedName}' not found in current session.`);
+      }
+    } else if (this.currentAssistants.length === 1) {
+        // If only one assistant, assume it's the target
+        targetAssistantId = this.currentAssistants[0];
+        logger.info(`Message implicitly targets the only assistant: ${targetAssistantId}`);
+    } else {
+        // TODO: Implement logic to select assistant based on context/capabilities
+        // For now, maybe pick the first one or none if multiple?
+        targetAssistantId = this.currentAssistants.length > 0 ? this.currentAssistants[0] : null;
+        logger.info(`Multiple assistants, defaulting target to: ${targetAssistantId ?? 'None (logic TBD)'}`);
+    }
+    // TODO: Use the targetAssistantId to select the correct profile/model
+    let assistantProfile: AssistantProfile | undefined;
+    if (targetAssistantId) {
+        assistantProfile = getAssistantProfileById(targetAssistantId);
+        if (!assistantProfile) {
+            logger.error(`Could not find profile for targeted assistant ID: ${targetAssistantId}`);
+            // Maybe post an error back to the UI?
+            // For now, proceed without a specific profile, using the default model.
+        } else {
+            logger.info(`Using profile for assistant: ${assistantProfile.name}`);
+            // TODO: Load model based on profile.modelConfig
+            // model = await getLanguageModelForProfile(assistantProfile);
+            // If model loading fails, fallback or error?
+        }
+    }
+    // --- End Placeholder ---
+
+    // Use the profile-specific model if loaded, otherwise the default
+    const modelToUse = getLanguageModel(); // Placeholder: model; // Replace with actual logic
+    if (!modelToUse) {
+      this.postErrorToWebview(
+        "AI model is not initialized. Check configuration.",
+      );
       return;
     }
 
-    if (!this.isModelInitialized) {
-      const initSuccess = await this.tryInitializeModel();
-      if (!initSuccess) {
-        this.postErrorToWebview(
-          "AI Model not initialized. Check configuration.",
-          "sendMessage",
-        );
-        return;
-      }
-    }
-
     try {
-      const model = getLanguageModel();
-      const userMessage = payload.text;
-      const streamId = payload.id ?? Date.now().toString(); // Use ?? for default
+      // Prepend profile instructions if available
+      const systemPrompt = assistantProfile?.instructions ? `${assistantProfile.instructions}\n\n---\n\n` : "";
+      const userMessage = systemPrompt + text;
 
       // Replace deprecated CoreTool with Tool
       const tools: Record<string, Tool> = createAllTools(PanelManager.currentPanel) as Record<string, Tool>; // Cast needed due to wrapper return type
@@ -549,7 +741,7 @@ export class PanelManager {
 
       try {
         streamResult = await streamText({
-          model: model,
+          model: modelToUse,
           prompt: userMessage,
           tools: tools,
           async onChunk({ chunk }) {
@@ -752,5 +944,26 @@ export class PanelManager {
     }
     // Still use void for floating promise
     void vscode.window.showErrorMessage(message);
+  }
+
+  // --- Method to set current assistants (Placeholder) ---
+  /**
+   * Sets the list of active assistant IDs for the current session.
+   * In a real implementation, this would likely be tied to specific chat sessions.
+   * @param assistantIds An array of assistant profile IDs.
+   */
+  public setCurrentAssistants(assistantIds: string[]): void {
+    // TODO: Integrate with actual session management
+    this.currentAssistants = assistantIds;
+    this.currentSessionId = "session_" + Date.now(); // Simple session ID for now
+    logger.info(`Set current assistants for session ${this.currentSessionId}: ${assistantIds.join(", ")}`);
+    // Example: Add a default assistant if none are set (for testing)
+    if (this.currentAssistants.length === 0) {
+        const profiles = getAssistantProfiles();
+        if (profiles.length > 0) {
+            this.currentAssistants.push(profiles[0].id);
+             logger.info(`Added default assistant: ${profiles[0].id}`);
+        }
+    }
   }
 }

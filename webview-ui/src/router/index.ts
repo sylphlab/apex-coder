@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import ChatView from "../views/ChatView.vue"; // <-- Import directly
+import SettingsView from "../views/SettingsView.vue"; // Import the new view
 
 const routes = [
   {
@@ -21,6 +22,11 @@ const routes = [
     path: "/api-keys",
     name: "ApiKeySettings",
     component: () => import("../views/ApiKeySettingsView.vue"), // Lazy load
+  },
+  {
+    path: "/settings",
+    name: "Settings",
+    component: SettingsView, // Use direct import or lazy load: () => import("../views/SettingsView.vue"),
   },
 ];
 

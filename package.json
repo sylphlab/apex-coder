@@ -49,6 +49,88 @@
           "default": null,
           "scope": "machine-overridable",
           "description": "Optional base URL for providers like Ollama or self-hosted models. Saved in user/workspace settings."
+        },
+        "apexCoder.assistantProfiles": {
+          "type": "array",
+          "default": [],
+          "scope": "machine-overridable",
+          "description": "Array of Assistant Profile configurations.",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "description",
+              "modelConfig",
+              "instructions",
+              "allowedTools"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique identifier for the profile (e.g., UUID)."
+              },
+              "name": {
+                "type": "string",
+                "description": "User-defined name for the assistant (e.g., \"React Expert\")."
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of the assistant's role or expertise."
+              },
+              "avatarColor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Optional color identifier for UI representation (e.g., CSS color value)."
+              },
+              "modelConfig": {
+                "type": "object",
+                "required": [
+                  "provider",
+                  "modelId"
+                ],
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "description": "Identifier for the AI provider (e.g., 'google', 'openai')."
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "description": "Specific model identifier (e.g., \"gemini-1.5-pro-latest\")."
+                  },
+                  "apiKeySecretKeyRef": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional reference to the secret key stored in VS Code SecretStorage."
+                  },
+                  "baseUrl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional custom base URL for the provider's API."
+                  }
+                },
+                "additionalProperties": true,
+                "description": "Configuration for the AI model used by this assistant."
+              },
+              "instructions": {
+                "type": "string",
+                "description": "Specific instructions or background knowledge for this assistant."
+              },
+              "allowedTools": {
+                "type": "array",
+                "description": "List of tool names this assistant is allowed to use.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -123,8 +205,10 @@
     "@ai-sdk/xai": "^1.2.7",
     "@iconify-json/carbon": "^1.2.8",
     "@openrouter/ai-sdk-provider": "^0.4.5",
+    "@xenova/transformers": "^2.17.2",
     "ai": "^4.3.2",
     "ollama-ai-provider": "^1.2.0",
+    "vectordb": "^0.18.2",
     "zod": "^3.24.2"
   },
   "lint-staged": {

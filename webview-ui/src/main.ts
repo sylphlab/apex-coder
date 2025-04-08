@@ -2,7 +2,7 @@ import "@unocss/reset/tailwind.css"; // Re-add Tailwind CSS reset from UnoCSS
 import "virtual:uno.css"; // Import UnoCSS entry point
 import { createApp } from "vue";
 import { createPinia } from "pinia"; // Import Pinia
-import router from "./router"; // Restore router import
+import router from "./router/index.ts"; // Re-added .ts extension
 // import './style.css'; as it was deleted and UnoCSS handles base styles
 import App from "./App.vue";
 

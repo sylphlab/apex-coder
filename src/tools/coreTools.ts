@@ -24,7 +24,16 @@ export interface FilesystemResultPayload extends ToolResultPayload {
     ctime: number; // Creation time (milliseconds since epoch)
     mtime: number; // Modification time (milliseconds since epoch)
   };
-  items?: string[]; // For listDirectory
+  // items?: string[]; // Removed from base interface
+}
+
+// Define a type for directory item details
+export interface DirectoryItem {
+  name: string;
+  type: 'directory' | 'file' | 'other'; // Add more types if needed (e.g., symlink)
+  // Add other potential details like size, modified date if available/needed
+  size?: number;
+  mtime?: number;
 }
 
 // Define specific result types for each tool
@@ -35,7 +44,7 @@ export interface ReadFileResult extends ToolResultPayload {
 }
 export interface WriteFileResult extends ToolResultPayload {}
 export interface ListDirectoryResult extends FilesystemResultPayload {
-  items?: string[]; // Already in FilesystemResultPayload, but explicit
+  items?: DirectoryItem[]; // Keep the detailed items definition here
 }
 export interface DirectoryActionResult extends ToolResultPayload {}
 export interface FileStatsResult extends FilesystemResultPayload {}

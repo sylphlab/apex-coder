@@ -66,10 +66,10 @@ export class MistralProvider extends BaseAIProvider {
 
       // Try to create a provider instance with the credentials
       const { createMistral } = await import("@ai-sdk/mistral");
-      // Assign to underscore variable as it's not used beyond creation check
-      const _provider = createMistral({ apiKey: apiKey });
 
-      // Just creating the provider instance is a basic check
+      // Use the imported creator function directly
+      createMistral({ apiKey: apiKey });
+      logger.info(`Mistral provider initialized successfully (simulated).`);
       return true;
     } catch (error: unknown) {
       logger.error("Failed to validate Mistral AI credentials:", error);

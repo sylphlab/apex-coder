@@ -5,6 +5,7 @@ import type {
   FilesystemResultPayload,
   ListDirectoryResult,
   DirectoryActionResult,
+  ToolResultPayload,
 } from "./coreTools";
 import { postToolResult, handleToolError } from "./coreTools";
 
@@ -89,18 +90,20 @@ export const listDirectoryToolDefinition = {
       const successMsg = `Successfully listed directory: ${relativePath}`;
       logger.info(`[Tool] ${successMsg}`);
 
-      // Post result to webview
-      const postPayload: FilesystemResultPayload = {
+      // Post result to webview - Note: FilesystemResultPayload no longer has 'items'
+      // We might need a different payload type or adjust this if webview needs the list.
+      const postPayload: Omit<FilesystemResultPayload, 'items'> & { itemsDescription?: string } = {
         toolName: toolName,
         success: true,
         message: successMsg,
         path: relativePath,
-        items: formattedItems.map(
-          (item) => `${item.name}${item.type === "directory" ? "/" : ""}`,
-        ),
+        // items: formattedItems.map( // Cannot assign to postPayload now
+        //   (item) => `${item.name}${item.type === "directory" ? "/" : ""}`,
+        // ),
+        itemsDescription: `Found ${formattedItems.length} items.`, // Send a description instead
         isDirectory: true,
       };
-      postToolResult(currentPanel, postPayload);
+      postToolResult(currentPanel, postPayload as ToolResultPayload); // Cast needed as we modified the structure
 
       // Return structure matching ListDirectoryResult for AI
       const result: ListDirectoryResult = {

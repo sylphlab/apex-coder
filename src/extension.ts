@@ -9,7 +9,7 @@ import {
   CONFIG_PROVIDER,
   CONFIG_MODEL_ID,
 } from "./utils/constants";
-import { ProviderService } from "./ai-sdk/providerService";
+import { getAllProviders } from "./ai-sdk/providerService";
 import type { ProviderDetails } from "./ai-sdk/providerService";
 import { initializeAiSdkModel } from "./ai-sdk/configLoader.js";
 
@@ -68,7 +68,7 @@ async function checkApiKeyOnActivation(
     }
 
     // Fetch all providers and find the configured one
-    const allProviders = await ProviderService.getAllProviders();
+    const allProviders = getAllProviders();
     const providerInfo = allProviders.find((p) => p.id === providerId);
 
     if (!providerInfo) {
@@ -276,7 +276,7 @@ async function handleSetApiKeyCommand(
   logger.info(`Command executed: ${COMMAND_SET_API_KEY}`);
   try {
     // 1. Select Provider
-    const allProviders = await ProviderService.getAllProviders();
+    const allProviders = getAllProviders();
     const providerQuickPickItems = allProviders.map((p) => ({
       label: p.name,
       detail: p.requiresApiKey ? "Requires API key" : "No API key needed",

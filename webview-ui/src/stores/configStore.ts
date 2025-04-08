@@ -4,8 +4,8 @@ import {
   ProviderService,
   type ProviderDetails,
   type ModelInfo,
-} from "../services/providerService";
-import { vscode } from "../vscode"; // Import vscode instance
+} from "../services/providerService.ts";
+import { vscode } from "../vscode.ts"; // Re-added .ts extension
 
 export const useConfigStore = defineStore("config", () => {
   // --- State ---

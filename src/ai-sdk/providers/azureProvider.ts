@@ -100,9 +100,9 @@ export class AzureProvider extends BaseAIProvider {
         options.deploymentName = deploymentName;
       }
 
-      const _provider = createAzure(options);
-
-      // Just creating the provider instance is a basic check
+      // Use the imported creator function directly
+      createAzure(options);
+      logger.info(`Azure provider initialized successfully (simulated).`);
       return true;
     } catch (error: unknown) {
       logger.error("Failed to validate Azure OpenAI credentials:", error);

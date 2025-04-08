@@ -66,10 +66,10 @@ export class DeepSeekProvider extends BaseAIProvider {
 
       // Try to create a provider instance with the credentials
       const { createDeepSeek } = await import("@ai-sdk/deepseek");
-      // Assign to underscore variable as it's not used beyond creation check
-      const _provider = createDeepSeek({ apiKey: apiKey });
 
-      // Just creating the provider instance is a basic check
+      // Use the imported creator function directly
+      createDeepSeek({ apiKey: apiKey });
+      logger.info(`DeepSeek provider initialized successfully (simulated).`);
       return true;
     } catch (error: unknown) {
       logger.error("Failed to validate DeepSeek credentials:", error);

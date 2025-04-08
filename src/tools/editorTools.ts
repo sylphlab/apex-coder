@@ -1,8 +1,7 @@
-import { z } from "zod";
 import * as vscode from "vscode";
-import { logger } from "../utils/logger";
-import type { ToolResultPayload, OpenFileResult } from "./coreTools";
-import { postToolResult, handleToolError } from "./coreTools";
+import { z } from "zod";
+import { handleToolError, postToolResult } from "./coreTools";
+import type { OpenFileResult } from "./coreTools";
 
 // Zod schema for the parameters
 const OpenFileParams = z.object({

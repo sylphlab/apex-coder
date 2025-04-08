@@ -60,10 +60,10 @@ export class CohereProvider extends BaseAIProvider {
 
       // Try to create a provider instance with the credentials
       const { createCohere } = await import("@ai-sdk/cohere");
-      // Assign to underscore variable as it's not used beyond creation check
-      const _provider = createCohere({ apiKey: apiKey });
 
-      // Just creating the provider instance is a basic check
+      // Use the imported creator function directly
+      createCohere({ apiKey: apiKey });
+      logger.info(`Cohere provider initialized successfully (simulated).`);
       return true;
     } catch (error: unknown) {
       logger.error("Failed to validate Cohere credentials:", error);

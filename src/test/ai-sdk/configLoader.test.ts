@@ -1,11 +1,11 @@
 /// <reference types="vitest/globals" />
 // Vitest tests for configLoader.ts
 import { describe, it, expect, beforeEach, vi } from "vitest";
+// import * as vscode from "../../__mocks__/vscode"; // Commented out - mock not found
 // Import explicit Mock type
 import type { Mock } from "vitest";
 // Import types from ai package for mocking
 import type { LanguageModel, LanguageModelV1, LanguageModelV1CallOptions, LanguageModelV1StreamPart } from "ai";
-import { LanguageModelV1Prompt } from "ai";
 import type { AiConfig } from "../../ai-sdk/configLoader";
 import {
   initializeAiSdkModel,
@@ -42,7 +42,7 @@ const createMockLanguageModel = (
     specificationVersion: "v1",
     defaultObjectGenerationMode: "json",
     doGenerate: async (options: LanguageModelV1CallOptions) => {
-      const _options = options;
+      expect(options).toEqual(expect.any(Object));
       return {
         text: `${provider}-response for ${modelId}`,
         toolCalls: [],
@@ -56,7 +56,7 @@ const createMockLanguageModel = (
     doStream: async (options: LanguageModelV1CallOptions) => {
       const stream = new ReadableStream<LanguageModelV1StreamPart>({
         async start(controller) {
-          const _options = options;
+          expect(options).toEqual(expect.any(Object));
           controller.enqueue({
             type: "text-delta",
             textDelta: `${provider}-stream for ${modelId}`,
@@ -327,5 +327,17 @@ describe("AI SDK Config Loader", () => {
       "AI SDK Model has not been initialized",
     );
     expect(getCurrentAiConfig()).toEqual(config);
+  });
+
+  it("should use provider and model from config, and API key from secrets", async () => {
+    const config: AiConfig = {
+      provider: "openai",
+      modelId: "gpt-3.5-turbo",
+      credentials: { apiKey: "test-key" },
+    };
+    await initializeAiSdkModel(config);
+    const model = getLanguageModel();
+    expect(model.provider).toBe("openai");
+    expect(model.modelId).toBe("gpt-3.5-turbo");
   });
 });

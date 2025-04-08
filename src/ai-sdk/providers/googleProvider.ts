@@ -65,10 +65,10 @@ export class GoogleAIProvider extends BaseAIProvider {
 
       // Try to create a provider instance with the credentials
       const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
-      // Assign to underscore variable as it's not used beyond creation check
-      const _provider = createGoogleGenerativeAI({ apiKey: apiKey });
 
-      // Just creating the provider instance is a basic check
+      // Use the imported creator function directly
+      createGoogleGenerativeAI({ apiKey: apiKey });
+      logger.info(`Google AI provider initialized successfully (simulated).`);
       return true;
     } catch (error: unknown) {
       logger.error("Failed to validate Google AI credentials:", error);

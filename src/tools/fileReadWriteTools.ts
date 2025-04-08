@@ -80,18 +80,15 @@ export const readFileToolDefinition = {
 
       const fileContentBytes = await vscode.workspace.fs.readFile(absolutePath);
       let fileContent = new TextDecoder().decode(fileContentBytes);
-      const originalLineCount = fileContent.split("\n").length;
 
       // Handle line range
       let isRangeApplied = false;
-      let returnedLineCount = originalLineCount;
       if (startLine !== undefined || endLine !== undefined) {
         const lines = fileContent.split("\n");
         const start = startLine ? Math.max(0, startLine - 1) : 0;
         const end = endLine ? Math.min(lines.length, endLine) : lines.length;
         if (start < end) {
           fileContent = lines.slice(start, end).join("\n");
-          returnedLineCount = end - start;
           isRangeApplied = true;
         } else {
           logger.warn(
@@ -131,7 +128,7 @@ export const readFileToolDefinition = {
         message: successMsg,
         path: relativePath,
         content: truncatedContent, // Return truncated content for AI
-        // Add originalLineCount, returnedLineCount, isTruncated, isRangeApplied if needed
+        // Add originalLineCount, isTruncated, isRangeApplied if needed
         // These might not be standard in ToolResultPayload, so ReadFileResult might need adjustment
       };
       return result;

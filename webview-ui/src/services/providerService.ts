@@ -1,4 +1,4 @@
-import { vscode } from "../vscode";
+import { vscode } from "../vscode.ts";
 
 /**
  * Interface for model information
