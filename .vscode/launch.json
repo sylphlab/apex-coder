@@ -1,7 +1,3 @@
-// A launch configuration that compiles the extension and then opens it inside a new window
-// Use IntelliSense to learn about possible attributes.
-// Hover to view descriptions of existing attributes.
-// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 {
 	"version": "0.2.0",
 	"configurations": [
@@ -9,28 +5,20 @@
 			"name": "Run Extension with UI Dev Server",
 			"type": "extensionHost",
 			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
-			],
-			"outFiles": [
-				"${workspaceFolder}/dist/**/*.js"
-			],
-			"preLaunchTask": "Start Webview UI Dev Server",
-			"postDebugTask": "Run: Show Panel"
+			"args": [ "--extensionDevelopmentPath=${workspaceFolder}" ],
+			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ],
+			"preLaunchTask": "Start Full Dev Watch", // Point to the new meta task
+            "postDebugTask": "Kill All Terminals"
 		},
 		{
-			"name": "Run Extension",
+			"name": "Run Extension", // Backend only debugging
 			"type": "extensionHost",
 			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
-			],
-			"outFiles": [
-				"${workspaceFolder}/dist/**/*.js"
-			],
-			"preLaunchTask": "${defaultBuildTask}",
+			"args": [ "--extensionDevelopmentPath=${workspaceFolder}" ],
+			"outFiles": [ "${workspaceFolder}/dist/**/*.js" ],
+			"preLaunchTask": "Start Backend Watch", // Point to backend watch meta task
 			"postDebugTask": "Run: Show Panel"
 		}
 	],
-	"compounds": []
+	"compounds": [] // Keep compounds empty
 }

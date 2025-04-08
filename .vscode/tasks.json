@@ -1,123 +1,142 @@
-// See https://go.microsoft.com/fwlink/?LinkId=733558
-// for the documentation about the tasks.json format
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-            "label": "watch",
-            "dependsOn": [
-                "npm: watch:tsc",
-                "npm: watch:esbuild"
-            ],
-            "presentation": {
-                "reveal": "never"
-            },
-            "group": {
-                "kind": "build"
+  "version": "2.0.0",
+  "tasks": [
+    // Backend watch tasks
+    {
+        "type": "npm",
+        "script": "watch:esbuild",
+        "group": "build",
+        "problemMatcher": "$esbuild-watch",
+        "isBackground": true,
+        "label": "npm: watch:esbuild",
+        "presentation": { "reveal": "always", "panel": "shared" },
+        "options": {
+            "statusbar": {
+                "label": "$(tools) esbuild",
+                "hide": false
             }
-        },
-        {
-            "type": "npm",
-            "script": "watch:esbuild",
-            "group": "build",
-            "problemMatcher": "$esbuild-watch",
-            "isBackground": true,
-            "label": "npm: watch:esbuild",
-            "presentation": {
-                "group": "watch",
-                "reveal": "never"
+        }
+    },
+    {
+        "type": "npm",
+        "script": "watch:tsc",
+        "group": "build",
+        "problemMatcher": "$tsc-watch",
+        "isBackground": true,
+        "label": "npm: watch:tsc",
+        "presentation": { "reveal": "always", "panel": "shared" },
+        "options": {
+            "statusbar": {
+                "label": "$(code) TSC",
+                "hide": false
             }
+        }
+    },
+    // Backend meta task
+    {
+        "label": "Start Backend Watch",
+        "dependsOn": [ "npm: watch:tsc", "npm: watch:esbuild" ],
+        "problemMatcher": [],
+        "group": { "kind": "build" }
+    },
+    // Vite task with improved problem matcher
+    {
+      "type": "npm",
+      "script": "watch:vite",
+      "problemMatcher": {
+        "owner": "vite",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "(?:ERROR|WARN)(?:.*?)(?:src|webview-ui)/([^:]*):([0-9]+):([0-9]+)\\s+-\\s+(.+)",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
         },
-		{
-            "type": "npm",
-            "script": "watch:tsc",
-            "group": "build",
-            "problemMatcher": "$tsc-watch",
-            "isBackground": true,
-            "label": "npm: watch:tsc",
-            "presentation": {
-                "group": "watch",
-                "reveal": "never"
-            }
-        },
-		{
-			"type": "npm",
-			"script": "watch-tests",
-			"problemMatcher": "$tsc-watch",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never",
-				"group": "watchers"
-			},
-			"group": "build"
-		},
-		{
-			"label": "tasks: watch-tests",
-			"dependsOn": [
-				"npm: watch",
-				"npm: watch-tests"
-			],
-			"problemMatcher": []
-		},
-		{
-			"label": "pnpm: watch",
-			"type": "shell",
-			"command": "pnpm run watch",
-			"problemMatcher": [
-				"$tsc-watch",
-		        "$eslint-compact"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"isBackground": true,
-		    "presentation": {
-		        "reveal": "silent",
-		        "clear": true
-		    }
-		},
-		{
-			"label": "Run: Show Panel",
-			"type": "shell",
-			"command": "${command:apex-coder.showPanel}",
-			"presentation": {
-				"reveal": "never",
-				"clear": true
-			},
-			"problemMatcher": []
-		},
-		{
-			"label": "Start Full Dev Environment",
-			"dependsOn": [
-				"pnpm: watch",
-				"Start Webview UI Dev Server"
-			],
-			"problemMatcher": []
-		},
-		{
-			"label": "Start Webview UI Dev Server",
-			"type": "shell",
-			"command": "pnpm --filter webview-ui dev",
-			"isBackground": true,
-			"problemMatcher": {
-				"pattern": {
-					"regexp": ".",
-					"file": 1,
-					"location": 2,
-					"message": 3
-				},
-				"background": {
-					"activeOnStart": true,
-					"beginsPattern": ".",
-					"endsPattern": "ready in \\d+ms"
-				}
-			},
-			"presentation": {
-				"reveal": "always",
-				"panel": "dedicated",
-				"clear": true
-			}
-		}
-	]
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v[0-9]\\.[0-9]\\.[0-9]",
+          "endsPattern": "(?:Local|Network):\\s+http"
+        }
+      },
+      "isBackground": true,
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "focus": true
+      },
+      "label": "npm: watch:vite",
+      "detail": "vite development server",
+      "options": {
+          "statusbar": {
+              "label": "$(rocket) Vite",
+              "color": "#FFB900",
+              "hide": false
+          }
+        }
+    },
+    // Meta task for Full Dev Watch (Default Build Task)
+    {
+        "label": "Start Full Dev Watch",
+        "dependsOn": [
+            "Start Backend Watch",
+            "npm: watch:vite"
+        ],
+        "problemMatcher": [],
+        "group": { "kind": "build", "isDefault": true }
+    },
+    // Other tasks (maintained)
+    {
+        "type": "npm",
+        "script": "watch-tests",
+        "problemMatcher": "$tsc-watch",
+        "isBackground": true,
+        "presentation": { "reveal": "always", "panel": "shared" },
+        "group": "build"
+    },
+    {
+        "label": "tasks: watch-tests",
+        "dependsOn": [ "Start Backend Watch", "npm: watch-tests" ],
+        "problemMatcher": []
+    },
+    {
+        "label": "Run: Show Panel",
+        "type": "shell",
+        "command": "${command:apex-coder.showPanel}",
+        "presentation": { "reveal": "always", "clear": true },
+        "problemMatcher": []
+    },
+    {
+      "label": "Kill All Terminals",
+      "type": "shell",
+      "command": "echo ${input:Terminate Vite Watch} && echo ${input:Terminate TSC Watch} && echo ${input:Terminate ESBuild Watch}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "never",
+        "close": true
+      },
+    }
+  ],
+  "inputs": [
+    {
+      "id": "Terminate Vite Watch",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "npm: watch:vite"
+    },
+    {
+      "id": "Terminate TSC Watch",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "npm: watch:tsc"
+    },
+    {
+      "id": "Terminate ESBuild Watch",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "npm: watch:esbuild"
+    }
+  ]
 }
