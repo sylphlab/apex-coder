@@ -13,6 +13,7 @@ import { getAllProviders } from "./ai-sdk/providerService";
 import type { ProviderDetails } from "./ai-sdk/providerService";
 import { initializeAiSdkModel } from "./ai-sdk/configLoader.js";
 import { SessionManager } from "./core/sessionManager";
+import type { SessionState, ScheduledAction } from "./types/sessionState";
 
 let panelManager: PanelManager | undefined;
 let sessionManager: SessionManager | undefined;
@@ -414,6 +415,54 @@ export async function activate(
 
   // Await this check
   await checkApiKeyOnActivation(context);
+
+  // Start background timer for scheduled actions
+  const schedulingIntervalMs = 60 * 1000; // Check every minute
+  logger.info(`Starting scheduled action checker. Interval: ${schedulingIntervalMs}ms`);
+  const timerId = setInterval(async () => {
+      if (sessionManager && panelManager) {
+          logger.info("[Background Timer] Checking scheduled actions...");
+          try {
+              const now = Date.now();
+              const allSessions = sessionManager.getAllSessions();
+              for (const session of allSessions) {
+                  if (session.scheduledActions && session.scheduledActions.length > 0) {
+                      let sessionModified = false;
+                      const actionsToExecuteNow: ScheduledAction[] = [];
+                      
+                      // Find pending actions that are due
+                      for (const action of session.scheduledActions) {
+                          if (action.status === 'pending' && action.triggerTime <= now) {
+                              logger.info(`[Background Timer] Found due action ${action.id} in session ${session.sessionId}`);
+                              action.status = 'executing'; // Mark executing immediately
+                              actionsToExecuteNow.push(action);
+                              sessionModified = true;
+                          }
+                      }
+                      
+                      // Save session if status changed
+                      if (sessionModified) {
+                          await sessionManager.saveSession(session.sessionId);
+                      }
+                      
+                      // Execute the found actions
+                      for (const action of actionsToExecuteNow) {
+                           logger.info(`[Background Timer] Attempting execution: ${action.id}`);
+                           // Call PanelManager to execute the action
+                           await panelManager.executeScheduledAction(session.sessionId, action);
+                           // Status update (completed/failed) should happen within executeScheduledAction
+                      }
+                  }
+              }
+          } catch(err: unknown) { 
+              logger.error("[Background Timer] Error during scheduled action check/trigger:", err);
+          }
+      } else {
+           logger.warn("[Background Timer] SessionManager or PanelManager not available.");
+      }
+  }, schedulingIntervalMs);
+  // Ensure timer is cleared on deactivation
+  context.subscriptions.push({ dispose: () => clearInterval(timerId) });
 
   // Register commands
   context.subscriptions.push(

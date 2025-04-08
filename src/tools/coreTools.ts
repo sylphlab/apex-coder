@@ -170,134 +170,115 @@ import { applyDiffToolDefinition } from "./patchTools";
 import { runCommandToolDefinition } from "./executionTools";
 // Import Scheduling tool
 import { scheduleActionToolDefinition } from "./schedulingTools";
+// Import ToolContext
+import type { ToolContext } from "../types/toolContext";
 
 /**
- * Creates all tools, injecting the webview panel for message posting.
+ * Creates all tools, injecting the webview panel and potentially session context.
  * @param panel The current webview panel or undefined.
  * @returns Object containing all tools that can be passed to Vercel AI SDK.
  */
 export function createAllTools(
   panel: vscode.WebviewPanel | undefined,
+  // Context might not be available at creation time, 
+  // it needs to be passed during execution.
 ): Record<string, ReturnType<typeof tool>> {
-  // Define tools directly, wrapping execute inline
+  // The execute function passed to Vercel needs to accept context.
+  // We modify the wrapper here.
+  const createToolExecutor = (definition: any) => 
+    async (args: any, context?: ToolContext) => definition.execute(args, panel, context);
+
   return {
     openFile: tool({
       description: openFileToolDefinition.description,
       parameters: openFileToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) => openFileToolDefinition.execute(args, panel),
+      execute: createToolExecutor(openFileToolDefinition),
     }),
     readFile: tool({
       description: readFileToolDefinition.description,
       parameters: readFileToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) => readFileToolDefinition.execute(args, panel),
+      execute: createToolExecutor(readFileToolDefinition),
     }),
     writeFile: tool({
       description: writeFileToolDefinition.description,
       parameters: writeFileToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) => writeFileToolDefinition.execute(args, panel),
+      execute: createToolExecutor(writeFileToolDefinition),
     }),
     listDirectory: tool({
       description: listDirectoryToolDefinition.description,
       parameters: listDirectoryToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) =>
-        listDirectoryToolDefinition.execute(args, panel),
+      execute: createToolExecutor(listDirectoryToolDefinition),
     }),
     createDirectory: tool({
       description: createDirectoryToolDefinition.description,
       parameters: createDirectoryToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) =>
-        createDirectoryToolDefinition.execute(args, panel),
+      execute: createToolExecutor(createDirectoryToolDefinition),
     }),
     deleteDirectory: tool({
       description: deleteDirectoryToolDefinition.description,
       parameters: deleteDirectoryToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) =>
-        deleteDirectoryToolDefinition.execute(args, panel),
+      execute: createToolExecutor(deleteDirectoryToolDefinition),
     }),
     fileStats: tool({
       description: fileStatsToolDefinition.description,
       parameters: fileStatsToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) => fileStatsToolDefinition.execute(args, panel),
+      execute: createToolExecutor(fileStatsToolDefinition),
     }),
     searchFiles: tool({
       description: searchFilesToolDefinition.description,
       parameters: searchFilesToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) =>
-        searchFilesToolDefinition.execute(args, panel),
+      execute: createToolExecutor(searchFilesToolDefinition),
     }),
-    // Add the new RAG tool
     searchCodebase: tool({
-      description: searchCodebaseToolDefinition.description,
-      parameters: searchCodebaseToolDefinition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: async (args: any) => searchCodebaseToolDefinition.execute(args, panel),
+        description: searchCodebaseToolDefinition.description,
+        parameters: searchCodebaseToolDefinition.parameters,
+        execute: createToolExecutor(searchCodebaseToolDefinition),
     }),
-    // VS Code Interaction Tools
     getOpenTabs: tool({
         description: getOpenTabsToolDefinition.description,
         parameters: getOpenTabsToolDefinition.parameters,
-        execute: async (args: any) => getOpenTabsToolDefinition.execute(args, panel),
+        execute: createToolExecutor(getOpenTabsToolDefinition),
     }),
     getActiveTerminals: tool({
         description: getActiveTerminalsToolDefinition.description,
         parameters: getActiveTerminalsToolDefinition.parameters,
-        execute: async (args: any) => getActiveTerminalsToolDefinition.execute(args, panel),
+        execute: createToolExecutor(getActiveTerminalsToolDefinition),
     }),
-    // System Info Tools
     getCurrentTime: tool({
         description: getCurrentTimeToolDefinition.description,
         parameters: getCurrentTimeToolDefinition.parameters,
-        execute: async (args: any) => getCurrentTimeToolDefinition.execute(args, panel),
+        execute: createToolExecutor(getCurrentTimeToolDefinition),
     }),
     getSystemInfo: tool({
         description: getSystemInfoToolDefinition.description,
         parameters: getSystemInfoToolDefinition.parameters,
-        execute: async (args: any) => getSystemInfoToolDefinition.execute(args, panel),
+        execute: createToolExecutor(getSystemInfoToolDefinition),
     }),
-    // Web Access Tools
     fetch: tool({
         description: fetchToolDefinition.description,
         parameters: fetchToolDefinition.parameters,
-        execute: async (args: any) => fetchToolDefinition.execute(args, panel),
+        execute: createToolExecutor(fetchToolDefinition),
     }),
     "browser/search": tool({
         description: searchToolDefinition.description,
         parameters: searchToolDefinition.parameters,
-        execute: async (args: any) => searchToolDefinition.execute(args, panel),
+        execute: createToolExecutor(searchToolDefinition),
     }),
-    // Patch Tool
     applyDiff: tool({
         description: applyDiffToolDefinition.description,
         parameters: applyDiffToolDefinition.parameters,
-        execute: async (args: any) => applyDiffToolDefinition.execute(args, panel),
+        execute: createToolExecutor(applyDiffToolDefinition),
     }),
-    // Execution Tool
     runCommand: tool({
         description: runCommandToolDefinition.description,
         parameters: runCommandToolDefinition.parameters,
-        execute: async (args: any) => runCommandToolDefinition.execute(args, panel),
+        execute: createToolExecutor(runCommandToolDefinition),
     }),
-    // Scheduling Tool
     scheduleAction: tool({
         description: scheduleActionToolDefinition.description,
         parameters: scheduleActionToolDefinition.parameters,
-        // IMPORTANT: This execute wrapper needs modification to pass currentSessionId
-        execute: async (args: any) => {
-            // How to get currentSessionId here? 
-            // Option 1: Modify createAllTools to accept session context?
-            // Option 2: The calling code in panelManager needs to inject it.
-            // For now, call without it (will fail inside execute)
-            logger.warn("[CoreTools] scheduleAction called, but currentSessionId passing is not implemented in wrapper.");
-            return scheduleActionToolDefinition.execute(args, panel, undefined);
-        },
+        // Now the executor created by createToolExecutor will pass the context
+        execute: createToolExecutor(scheduleActionToolDefinition),
     }),
   };
 }

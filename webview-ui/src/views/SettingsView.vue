@@ -30,17 +30,19 @@ function getProfiles() {
 }
 
 // Function to handle adding a new profile
-function addProfile() {
-  console.log('[SettingsView] Add Profile button clicked');
+function openAddProfileForm() {
+  console.log('[SettingsView] Open Add Profile Form');
   editingProfile.value = null; // Ensure we are in create mode
+  error.value = null; // Clear previous errors when opening form
   showForm.value = true;
 }
 
 // Function to handle editing a profile
-function editProfile(profile: AssistantProfile) {
-  console.log(`[SettingsView] Edit Profile button clicked for ID: ${profile.id}`);
-  // Pass the actual profile object for editing
-  editingProfile.value = profile;
+function openEditProfileForm(profile: AssistantProfile) {
+  console.log(`[SettingsView] Open Edit Profile Form for ID: ${profile.id}`);
+  // Pass a deep copy to prevent accidental modification before saving
+  editingProfile.value = JSON.parse(JSON.stringify(profile));
+  error.value = null; // Clear previous errors when opening form
   showForm.value = true;
 }
 
@@ -60,23 +62,24 @@ function deleteProfile(profileId: string) {
 }
 
 // Function to handle the save event from ProfileForm
-function handleSaveProfile(profile: AssistantProfile) {
-  console.log('[SettingsView] Saving profile:', profile);
+function handleSaveProfile(profileData: AssistantProfile) {
+  console.log('[SettingsView] Saving profile:', profileData);
   error.value = null; // Clear previous errors
   try {
     if (editingProfile.value) {
       // Update existing profile
-      vscode.postMessage({ command: 'updateAssistantProfile', payload: profile });
+      console.log(` -> Sending updateAssistantProfile for ID: ${profileData.id}`);
+      vscode.postMessage({ command: 'updateAssistantProfile', payload: profileData });
     } else {
       // Add new profile
-      vscode.postMessage({ command: 'addAssistantProfile', payload: profile });
+      console.log(` -> Sending addAssistantProfile for ID: ${profileData.id}`);
+      vscode.postMessage({ command: 'addAssistantProfile', payload: profileData });
     }
-    // Form is hidden via message response or could be hidden optimistically
-    // showForm.value = false; 
+    // Keep form open, let message handler close it on success
   } catch (e) {
       console.error('[SettingsView] Error posting save/update message:', e);
       error.value = 'Failed to communicate with the extension to save profile.';
-      // Keep form open on error?
+      // Keep form open on error
   }
 }
 
@@ -101,6 +104,7 @@ const messageListener = (event: MessageEvent) => {
         // Remove the profile from the local list immediately for responsiveness
         profiles.value = profiles.value.filter((p: AssistantProfile) => p.id !== message.payload.profileId);
         // Alternatively, call getProfiles() again, but this is faster for the UI
+        error.value = null; // Clear error on successful delete
       } else {
         error.value = `Failed to delete profile: ${message.payload.error || 'Unknown error'}`;
         // Optionally show a more prominent error to the user
@@ -112,6 +116,8 @@ const messageListener = (event: MessageEvent) => {
         // profiles.value.push(message.payload.profile);
         getProfiles(); // Easiest way to ensure consistency after add
         showForm.value = false; // Close form on success
+        editingProfile.value = null; 
+        error.value = null;
       } else {
          error.value = `Failed to add profile: ${message.payload.error || 'Unknown error'}`;
       }
@@ -121,6 +127,8 @@ const messageListener = (event: MessageEvent) => {
          // Update in list or refetch
          getProfiles(); // Easiest way to ensure consistency after update
          showForm.value = false; // Close form on success
+         editingProfile.value = null;
+         error.value = null;
        } else {
           error.value = `Failed to update profile: ${message.payload.error || 'Unknown error'}`;
        }
@@ -145,24 +153,32 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-4 h-full flex flex-col text-[var(--vscode-foreground)]">
-    <!-- Show Form Overlay -->
-    <div v-if="showForm" class="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
-        <ProfileForm 
-            :profile="editingProfile"
-            @save="handleSaveProfile"
-            @cancel="handleCancelForm"
-            class="w-full max-w-2xl max-h-[90vh] overflow-y-auto" 
-        />
-    </div>
+  <div class="p-4 h-full flex flex-col text-[var(--vscode-foreground)] relative overflow-hidden">
+    <!-- Show Form Overlay using Teleport for better stacking context -->
+    <Teleport to="body">
+        <div v-if="showForm" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4 transition-opacity duration-200" @click.self="handleCancelForm">
+            <ProfileForm 
+                :profile="editingProfile"
+                @save="handleSaveProfile"
+                @cancel="handleCancelForm"
+                class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--vscode-sideBar-background)] rounded-lg shadow-xl border border-[var(--vscode-input-border)]"
+            />
+        </div>
+    </Teleport>
 
     <!-- Main Settings View Content -->
-    <div :class="{ 'blur-sm pointer-events-none': showForm }"> 
+    <!-- Apply blur only when form is shown -->
+    <div :class="{ 'blur-sm': showForm }">
         <h1 class="text-xl font-semibold mb-4">Assistant Profiles</h1>
+
+        <!-- Error display area (moved outside the loading/empty checks) -->
+         <div v-if="error && !isLoading" class="text-red-500 p-3 border border-red-600 rounded bg-red-900/20 mb-4 text-sm">
+          <p><strong>Error:</strong> {{ error }}</p>
+        </div>
 
         <div class="mb-4 flex justify-end">
           <button
-            @click="addProfile"
+            @click="openAddProfileForm" 
             class="px-4 py-2 bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] rounded hover:bg-[var(--vscode-button-hoverBackground)] transition-colors"
             :disabled="showForm" 
           >
@@ -175,41 +191,41 @@ onUnmounted(() => {
           <!-- TODO: Add a better loading indicator -->
         </div>
 
-        <div v-else-if="error && !showForm" class="text-red-500 p-2 border border-red-500 rounded bg-red-500/10 mb-4">
-          <p>Error: {{ error }}</p>
+        <div v-else-if="profiles.length === 0" class="flex-grow flex items-center justify-center">
+          <p>No assistant profiles configured yet. Click 'Add New Profile' to create one.</p>
         </div>
 
-        <div v-if="!isLoading && profiles.length === 0 && !error" class="flex-grow flex items-center justify-center">
-          <p>No assistant profiles configured yet.</p>
-        </div>
-
-        <div v-if="!isLoading && profiles.length > 0" class="flex-grow overflow-y-auto">
+        <div v-else class="flex-grow overflow-y-auto pb-4 custom-scrollbar pr-1">
           <ul class="space-y-3">
             <li
               v-for="profile in profiles"
-              :key="profile.id" // Ensure key is bound
-              class="p-3 border border-[var(--vscode-sideBar-border)] rounded bg-[var(--vscode-sideBar-background)] flex justify-between items-center"
+              :key="profile.id"
+              class="p-3 border border-[var(--vscode-sideBar-border)] rounded bg-[var(--vscode-sideBar-background)] flex justify-between items-center group hover:border-[var(--vscode-focusBorder)] transition-colors duration-150"
             >
-              <div>
-                <h2 class="font-medium">{{ profile.name }}</h2>
-                <p class="text-sm text-[var(--vscode-descriptionForeground)]">{{ profile.description }}</p>
-                <!-- Optionally display model info -->
-                <!-- <p class="text-xs mt-1">Model: {{ profile.modelConfig.provider }} / {{ profile.modelConfig.modelId }}</p> -->
+              <div class="flex-grow mr-4 overflow-hidden">
+                <h2 class="font-medium truncate" :title="profile.name">{{ profile.name }}</h2>
+                <p class="text-sm text-[var(--vscode-descriptionForeground)] truncate" :title="profile.description">{{ profile.description || 'No description'}}</p>
+                 <!-- Display model info -->
+                 <p class="text-xs text-[var(--vscode-disabledForeground)] mt-1 truncate" :title="`${profile.modelConfig.provider} / ${profile.modelConfig.modelId}`">
+                    Model: {{ profile.modelConfig.provider }} / {{ profile.modelConfig.modelId }}
+                 </p>
               </div>
-              <div class="flex space-x-2">
+              <div class="flex space-x-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                 <button
-                  @click="editProfile(profile)" 
+                  @click="openEditProfileForm(profile)" 
                   :disabled="showForm"
                   class="p-1 text-xs bg-[var(--vscode-button-secondaryBackground)] text-[var(--vscode-button-secondaryForeground)] rounded hover:bg-[var(--vscode-button-secondaryHoverBackground)] transition-colors disabled:opacity-50"
+                  title="Edit Profile"
                 >
-                  Edit
+                  <span class="i-carbon-edit block"></span> <!-- Icon example -->
                 </button>
                 <button
                   @click="deleteProfile(profile.id)"
                   :disabled="showForm"
                   class="p-1 text-xs bg-[var(--vscode-errorForeground)] text-[var(--vscode-button-foreground)] rounded hover:opacity-80 transition-opacity disabled:opacity-50"
+                  title="Delete Profile"
                 >
-                  Delete
+                   <span class="i-carbon-trash-can block"></span> <!-- Icon example -->
                 </button>
               </div>
             </li>
@@ -220,5 +236,22 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Scoped styles if needed */
+/* Scoped styles */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+}
 </style> 

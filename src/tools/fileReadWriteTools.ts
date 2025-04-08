@@ -11,6 +11,8 @@ import {
   handleToolError,
 } from "./coreTools";
 // import * as pathUtils from "path"; // Remove unused import for now
+import { acquireLock } from "../utils/fileLockManager";
+import type { ToolContext } from "../types/toolContext";
 
 /**
  * Reads file content with optional line range support.
@@ -148,20 +150,11 @@ export const readFileToolDefinition = {
  */
 export const writeFileToolDefinition = {
   description:
-    "Writes content to a file, creating parent directories if needed. Use with caution, especially with overwrite=true.",
+    "Writes the given content to a specified file. Optionally overwrites existing files.",
   parameters: z.object({
-    path: z
-      .string()
-      .describe(
-        'File path relative to workspace root (e.g., "src/newFile.ts")',
-      ),
-    content: z.string().describe("File content to write"),
-    overwrite: z
-      .boolean()
-      .default(false)
-      .describe(
-        "Set to true to overwrite an existing file. Defaults to false to prevent accidental data loss.",
-      ),
+    path: z.string().describe('File path relative to workspace root (e.g., "src/newFile.ts").'),
+    content: z.string().describe("The content to write to the file."),
+    overwrite: z.boolean().default(false).describe("Whether to overwrite the file if it already exists."),
   }),
   /**
    * Executes the write file tool.
@@ -172,12 +165,14 @@ export const writeFileToolDefinition = {
   async execute(
     args: { path: string; content: string; overwrite: boolean },
     currentPanel?: vscode.WebviewPanel,
+    context?: ToolContext
   ): Promise<WriteFileResult> {
     const toolName = "writeFile";
     const { path: relativePath, content, overwrite } = args;
-    logger.info(
-      `[Tool] Executing writeFile: ${relativePath} (overwrite: ${String(overwrite)})`,
-    );
+    const sessionId = context?.sessionId || 'unknown_session';
+    logger.info(`[Tool][${sessionId}] Executing ${toolName}: ${relativePath}`);
+
+    let releaseLock: (() => void) | null = null;
 
     try {
       const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -185,71 +180,72 @@ export const writeFileToolDefinition = {
         throw new Error("No workspace folder open");
       }
       const rootUri = workspaceFolders[0].uri;
-      const absolutePath = vscode.Uri.joinPath(rootUri, relativePath);
+      const fileUri = vscode.Uri.joinPath(rootUri, relativePath);
+      const absolutePath = fileUri.fsPath;
 
-      // Check if file exists if not overwriting
+      // 1. Acquire Lock
+      logger.info(`[Tool][${sessionId}] Attempting to acquire lock for ${absolutePath}`);
+      releaseLock = await acquireLock(absolutePath);
+      logger.info(`[Tool][${sessionId}] Lock acquired for ${absolutePath}`);
+
+      // 2. Check if file exists and handle overwrite logic
       let fileExists = false;
       try {
-        const stat = await vscode.workspace.fs.stat(absolutePath);
-        if (stat.type === vscode.FileType.Directory) {
-          throw new Error(
-            "Path exists and is a directory. Cannot overwrite a directory with a file.",
-          );
-        }
+        await vscode.workspace.fs.stat(fileUri);
         fileExists = true;
-      } catch (statError: unknown) {
-        if (
-          statError instanceof Error &&
-          (statError as vscode.FileSystemError).code !== "FileNotFound" &&
-          (statError as vscode.FileSystemError).code !== "EntryNotFound"
-        ) {
-          throw statError; // Re-throw unexpected errors
+      } catch (statError: any) {
+        if (statError?.code !== 'FileNotFound' && statError?.code !== 'EntryNotFound') {
+          throw statError; // Re-throw unexpected stat errors
         }
         // File does not exist, which is fine
       }
 
       if (fileExists && !overwrite) {
         throw new Error(
-          `File already exists at "${relativePath}" and overwrite is set to false.`,
+          `File "${relativePath}" already exists. Use overwrite: true to replace it.`,
         );
       }
 
-      // Create parent directories if needed
-      const dirUri = vscode.Uri.joinPath(absolutePath, "..");
-      await vscode.workspace.fs.createDirectory(dirUri);
+      // 3. Write the file
+      await vscode.workspace.fs.writeFile(fileUri, Buffer.from(content, 'utf-8'));
 
-      await vscode.workspace.fs.writeFile(
-        absolutePath,
-        new TextEncoder().encode(content),
-      );
+      const successMsg = `Successfully wrote content to ${relativePath}.`;
+      logger.info(`[Tool][${sessionId}] ${successMsg}`);
+      postToolResult(currentPanel, { toolName, success: true, message: successMsg, path: relativePath });
+      
+      // 4. Release lock (early release on success)
+      if (releaseLock) {
+          logger.info(`[Tool][${sessionId}] Releasing lock for ${relativePath} after write.`);
+          releaseLock();
+          releaseLock = null; // Prevent release in finally block
+      }
 
-      const successMsg = `Successfully wrote file: ${relativePath}`;
-      logger.info(`[Tool] ${successMsg}`);
-
-      // Post result to webview
-      const postPayload: FilesystemResultPayload = {
+      return {
         toolName: toolName,
         success: true,
         message: successMsg,
         path: relativePath,
       };
-      postToolResult(currentPanel, postPayload);
-
-      // Return structure matching WriteFileResult for AI
-      const result: WriteFileResult = {
-        toolName: toolName,
-        success: true,
-        message: successMsg,
-        path: relativePath,
-      };
-      return result;
-    } catch (error: unknown) {
-      return handleToolError(
+    } catch (error) {
+      const errorResult = handleToolError(
         error,
         toolName,
         currentPanel,
         args,
-      ) as unknown as WriteFileResult; // Need cast due to handleToolError's return type
+      ) as unknown as WriteFileResult;
+      return {
+        toolName: toolName,
+        success: false,
+        message: errorResult.message || `Failed to write to ${relativePath}.`,
+        path: relativePath,
+        error: errorResult.error,
+      };
+    } finally {
+        // Ensure lock is always released, even if write succeeded but something else failed
+        if (releaseLock) {
+            logger.info(`[Tool][${sessionId}] Releasing lock for ${relativePath} in finally block.`);
+            releaseLock();
+        }
     }
   },
 };

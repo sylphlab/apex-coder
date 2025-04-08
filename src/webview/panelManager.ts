@@ -38,7 +38,7 @@ import {
 } from "../utils/constants";
 // Import SessionManager and SessionState
 import type { SessionManager } from "../core/sessionManager";
-import type { SessionState } from "../types/sessionState";
+import type { SessionState, ScheduledAction } from "../types/sessionState";
 // Import uuid
 import { v4 as uuidv4 } from 'uuid';
 
@@ -67,6 +67,12 @@ interface SaveConfigPayload {
 interface SendMessagePayload {
   id: string; // Unique ID for the stream
   text: string;
+}
+
+// Define ToolContext type
+interface ToolContext {
+  sessionId: string;
+  assistantId: string;
 }
 
 /**
@@ -205,7 +211,7 @@ export class PanelManager {
         sessionId = newSession.sessionId;
         logger.info(`No session ID provided, created and using new session: ${sessionId}`);
     }
-    this.currentSessionId = sessionId;
+    this.currentSessionId = sessionId ?? null;
     // Load session state AFTER panel creation but before sending initial status?
     if (this.currentSessionId) { // Check if we have a valid ID before trying to load
       const sessionState = this.sessionManager.getSession(this.currentSessionId);
@@ -220,7 +226,7 @@ export class PanelManager {
       } else {
           logger.error(`Could not find session state for ID: ${this.currentSessionId}. Creating new.`);
           const newSession = this.sessionManager.createSession();
-          this.currentSessionId = newSession.sessionId ?? null; // Assign new ID, ensuring null if undefined
+          this.currentSessionId = newSession.sessionId ?? null; // Ensure null if undefined
           this.currentAssistants = [];
           // ** Send empty message list for new session **
           PanelManager.currentPanel?.webview.postMessage({
@@ -1111,4 +1117,129 @@ export class PanelManager {
   }
 
   // TODO: Add removeAssistantFromCurrentSession
+
+  // --- Scheduled Action Execution --- 
+  /**
+   * Executes a scheduled action for a given session.
+   * This is intended to be called by the background timer/scheduler.
+   * @param sessionId The ID of the session the action belongs to.
+   * @param action The ScheduledAction object to execute.
+   */
+  public async executeScheduledAction(sessionId: string, action: ScheduledAction): Promise<void> {
+      logger.info(`[PanelManager] Executing scheduled action ${action.id} for session ${sessionId}`);
+      
+      // Ensure the action is still marked as executing (prevent race conditions?)
+      const sessionState = this.sessionManager.getSession(sessionId);
+      const actionInState = sessionState?.scheduledActions?.find((a: ScheduledAction) => a.id === action.id);
+
+      if (!sessionState || !actionInState || actionInState.status !== 'executing') {
+          logger.warn(`[PanelManager] Action ${action.id} in session ${sessionId} is not in executing state or session not found. Skipping.`);
+          // Optionally update status back to pending or failed?
+          if (sessionState && actionInState) {
+             await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'failed');
+          }
+          return;
+      }
+
+      let success = false;
+      try {
+          // --- Action Execution Logic --- 
+          switch (action.actionType) {
+              case 'sendMessage': { // Example: Send a message as the target assistant
+                  const messageText = action.actionPayload?.text as string;
+                  const targetProfile = getAssistantProfileById(action.targetAssistantId);
+                  if (!messageText) throw new Error('Missing text in sendMessage actionPayload');
+                  if (!targetProfile) throw new Error(`Target assistant profile ${action.targetAssistantId} not found.`);
+                  
+                  logger.info(` -> Action Type: sendMessage, Target: ${targetProfile.name}, Text: "${messageText}"`);
+                  // Construct the message and add to state
+                  const assistantMessage: Message = {
+                      id: uuidv4(),
+                      role: 'assistant', 
+                      // TODO: Figure out how to attribute this message to the targetAssistantId
+                      // Maybe add assistantId to the Message interface?
+                      content: messageText,
+                      // Optionally include model info from targetProfile?
+                  };
+                  sessionState.messages.push(assistantMessage);
+                  // Notify webview to display the new message
+                  PanelManager.currentPanel?.webview.postMessage({
+                      command: 'aiResponseChunk', // Reuse chunk command for simplicity?
+                      payload: { streamId: `scheduled_${action.id}`, textChunk: messageText }
+                  });
+                  PanelManager.currentPanel?.webview.postMessage({ 
+                      command: 'aiResponseComplete', 
+                      payload: { streamId: `scheduled_${action.id}` } 
+                  }); 
+                  success = true;
+                  break;
+              }
+
+              case 'callTool': { // Example: Call a tool as the target assistant
+                  const toolName = action.actionPayload?.toolName as string;
+                  const toolArgs = action.actionPayload?.args as any;
+                  const targetProfile = getAssistantProfileById(action.targetAssistantId);
+                  if (!toolName || !toolArgs) throw new Error('Missing toolName or args in callTool actionPayload');
+                   if (!targetProfile) throw new Error(`Target assistant profile ${action.targetAssistantId} not found.`);
+
+                  logger.info(` -> Action Type: callTool, Target: ${targetProfile.name}, Tool: ${toolName}, Args: ${JSON.stringify(toolArgs)}`);
+
+                  // Check if tool is allowed for the profile
+                  if (!targetProfile.allowedTools.includes(toolName)) {
+                     throw new Error(`Tool '${toolName}' is not allowed for assistant profile '${targetProfile.name}'.`);
+                  }
+
+                  const tools = createAllTools(PanelManager.currentPanel);
+                  const toolToCall = tools[toolName];
+                  if (!toolToCall || typeof toolToCall.execute !== 'function') {
+                      throw new Error(`Tool '${toolName}' not found or does not have an executable function.`);
+                  }
+
+                  // ** Create ToolContext **
+                  const toolContext: ToolContext = {
+                      sessionId: sessionId,
+                      assistantId: action.targetAssistantId
+                  };
+
+                  // Execute the tool, passing context
+                  const toolResult = await toolToCall.execute(toolArgs, toolContext);
+                  logger.info(` -> Tool ${toolName} executed. Result: ${JSON.stringify(toolResult)}`);
+
+                  // Add tool result message to state
+                  sessionState.messages.push({
+                      id: uuidv4(),
+                      role: 'tool',
+                      toolResults: [{ toolName: toolName, result: toolResult }],
+                      content: '',
+                  });
+                   // Notify webview?
+                  success = true;
+                  break;
+              }
+
+              default:
+                  logger.warn(`[PanelManager] Unknown scheduled action type: ${action.actionType}`);
+                  throw new Error(`Unknown scheduled action type: ${action.actionType}`);
+          }
+          // ---------------------------
+
+          // Update status to completed on success
+          await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'completed');
+
+      } catch (error) {
+          logger.error(`[PanelManager] Error executing scheduled action ${action.id}:`, error);
+          // Update status to failed
+          await this.sessionManager.updateScheduledActionStatus(sessionId, action.id, 'failed');
+          // Optionally add an error message to the chat?
+          sessionState.messages.push({
+              id: uuidv4(),
+              role: 'system', // Or 'assistant'?
+              content: `[Error executing scheduled action ${action.id}: ${error instanceof Error ? error.message : String(error)}]`
+          });
+          // Notify webview of the error message?
+      }
+      // Save session state again after execution (success or fail) and status update
+      await this.sessionManager.saveSession(sessionId);
+  }
+  // --- End Scheduled Action Execution --- 
 }
